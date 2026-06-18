@@ -1,0 +1,6 @@
+.env
+.idea/
+*.iml
+target/
+.env
+resume-screener/src/main/resources/application.properties
