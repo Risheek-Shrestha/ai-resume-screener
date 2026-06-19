@@ -8,6 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "scores")
@@ -35,14 +37,16 @@ public class Score {
     @Column(nullable = false, precision = 5, scale = 2)
     private BigDecimal overallScore;
 
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String matchedKeywords;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(nullable = false, columnDefinition = "jsonb")
     private String missingKeywords;
 
-    @Lob
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String recommendationsSummary;
 
     @CreationTimestamp

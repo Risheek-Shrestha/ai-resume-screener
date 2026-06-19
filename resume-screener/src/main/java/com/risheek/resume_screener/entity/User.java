@@ -19,7 +19,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Username address required")
+    @NotBlank(message = "Username required")
     @Column(nullable = false)
     @Size(min = 3, max = 50)
     private String username;

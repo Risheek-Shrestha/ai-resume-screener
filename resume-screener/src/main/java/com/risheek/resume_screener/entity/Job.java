@@ -14,7 +14,6 @@ import java.util.List;
 @Entity
 @Table(name = "jobs")
 @Data
-@ToString(exclude = "skills")
 @NoArgsConstructor
 @AllArgsConstructor
 public class Job {
@@ -56,11 +55,8 @@ public class Job {
     private ExperienceLevel experienceLevel;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
-
-    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<JobSkill> skills = new ArrayList<>();
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

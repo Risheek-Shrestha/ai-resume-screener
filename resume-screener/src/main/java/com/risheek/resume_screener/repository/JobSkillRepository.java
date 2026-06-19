@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface JobSkillRepository extends JpaRepository <JobSkill, Long> {
+public interface JobSkillRepository extends JpaRepository<JobSkill, Long> {
     List<JobSkill> findByJobId(Long jobId);
+    void deleteByJobId(Long jobId); // needed so updateJob can replace old skills
 }
