@@ -16,8 +16,7 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 # ── Request / Response models ─────────────────────────────────────────────────
 
 class AnalyzeRequest(BaseModel):
-    fileData: list[int]
-    fileType: str
+    resumeText: str
     jobSkills: list[str]
     jobDescription: str
 
@@ -30,8 +29,7 @@ class AnalyzeResponse(BaseModel):
 
 
 class SuggestRequest(BaseModel):
-    fileData: list[int]
-    fileType: str
+    resumeText: str
     jobSkills: list[str]
     jobDescription: str
     jobTitle: str
@@ -49,8 +47,7 @@ class SuggestResponse(BaseModel):
 
 
 class JobMatchRequest(BaseModel):
-    fileData: list[int]
-    fileType: str
+    resumeText: str
     resumeSkills: list[str]
 
 
@@ -324,8 +321,7 @@ def generate_resume_tips(resume_text: str, tfidf_pct: float,
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(request: AnalyzeRequest):
-    file_bytes = bytes(request.fileData)
-    resume_text = extract_text(file_bytes, request.fileType)
+    resume_text = request.resumeText
 
     kw_score, matched, missing = keyword_score(resume_text, request.jobSkills)
     tf_score = tfidf_score(resume_text, request.jobDescription)
@@ -341,11 +337,26 @@ def analyze(request: AnalyzeRequest):
         recommendationsSummary=summary
     )
 
+class ExtractTextRequest(BaseModel):
+    fileData: list[int]
+    fileType: str
+
+@app.post("/extract-text")
+def extract_resume_text(request: ExtractTextRequest):
+    file_bytes = bytes(request.fileData)
+
+    text = extract_text(
+        file_bytes,
+        request.fileType
+    )
+
+    return {
+        "parsedText": text
+    }
 
 @app.post("/suggest", response_model=SuggestResponse)
 def suggest(request: SuggestRequest):
-    file_bytes = bytes(request.fileData)
-    resume_text = extract_text(file_bytes, request.fileType)
+    resume_text = request.resumeText
 
     # Re-compute content-based scores for deeper analysis
     tf_score = tfidf_score(resume_text, request.jobDescription)
@@ -380,8 +391,7 @@ def suggest(request: SuggestRequest):
 @app.post("/match-jobs", response_model=list[JobMatchResult])
 def match_jobs(request: JobMatchBatchRequest):
 
-    file_bytes = bytes(request.resume.fileData)
-    resume_text = extract_text(file_bytes, request.resume.fileType)
+    resume_text = request.resume.resumeText
     resume_skills = request.resume.resumeSkills
 
     results = []
