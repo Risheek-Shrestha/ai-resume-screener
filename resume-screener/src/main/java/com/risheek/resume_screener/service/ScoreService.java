@@ -16,9 +16,9 @@ import jakarta.transaction.Transactional;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -35,11 +35,12 @@ public class ScoreService {
                         UserRepository userRepository,
                         JobSkillRepository jobSkillRepository,
                         WebClient.Builder webClientBuilder,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper,
+                        @Value("${ml.service.url}") String mlServiceUrl) {
         this.scoreRepository = scoreRepository;
         this.userRepository = userRepository;
         this.jobSkillRepository = jobSkillRepository;
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8000").build();
+        this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
         this.objectMapper = objectMapper;
     }
 

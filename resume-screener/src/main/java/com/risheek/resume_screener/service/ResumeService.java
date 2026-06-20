@@ -19,6 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,15 +37,14 @@ public class ResumeService {
 
     public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository,
                          JobRepository jobRepository, ScoreRepository scoreRepository,
-                         ScoreService scoreService, WebClient.Builder webClientBuilder){
+                         ScoreService scoreService, WebClient.Builder webClientBuilder,
+                         @Value("${ml.service.url}") String mlServiceUrl){
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
         this.scoreRepository = scoreRepository;
         this.scoreService = scoreService;
-        this.webClient = webClientBuilder
-                .baseUrl("http://localhost:8000")
-                .build();
+        this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
     @Transactional

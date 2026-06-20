@@ -19,6 +19,7 @@ import com.risheek.resume_screener.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -42,14 +43,15 @@ public class SuggestionService {
                              JobSkillRepository jobSkillRepository,
                              UserRepository userRepository,
                              ObjectMapper objectMapper,
-                             WebClient.Builder webClientBuilder) {
+                             WebClient.Builder webClientBuilder,
+                             @Value("${ml.service.url}") String mlServiceUrl) {
         this.scoreRepository = scoreRepository;
         this.resumeRepository = resumeRepository;
         this.jobRepository = jobRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
-        this.webClient = webClientBuilder.baseUrl("http://localhost:8000").build();
+        this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
     public SuggestionResponse getImprovementSuggestions(Long resumeId) {
