@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: resume-screener-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-resume_screener}
+      POSTGRES_USER: ${DB_USERNAME:-resume_screener}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-resume_pass}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resume_screener} -d ${POSTGRES_DB:-resume_screener}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ml-service:
+    build: ./ml-service
+    container_name: resume-screener-ml
+    ports:
+      - "8000:8000"
+
+  resume-screener:
+    build: ./resume-screener
+    container_name: resume-screener-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-resume_screener}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-resume_screener}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-resume_pass}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
+      ML_SERVICE_URL: http://ml-service:8000
+    ports:
+      - "8081:8081"
+
+volumes:
+  pgdata:
