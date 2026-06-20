@@ -12,6 +12,47 @@ app = FastAPI()
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
+SKILL_SYNONYMS = {
+    "postgresql": ["postgres", "postgres database"],
+    "hibernate": ["jpa", "spring data jpa"],
+    "javascript": ["js"],
+    "statistics": ["statistical analysis"],
+    "kubernetes": ["k8s"],
+    "machine learning": ["ml"],
+    "deep learning": ["dl"],
+    "spring boot": ["spring"],
+    "rest api": ["restful api"],
+    "scikit-learn": ["sklearn"],
+    "tensorflow": ["tf"],
+    "pytorch": ["torch"],
+    "amazon web services": ["aws"]
+}
+# ---Helpers----------------------------------------------------------------------------------------------------------
+
+def skill_variants(skill: str) -> list[str]:
+    skill = skill.lower()
+
+    variants = [skill]
+
+    if skill in SKILL_SYNONYMS:
+        variants.extend(SKILL_SYNONYMS[skill])
+
+    return variants
+
+def skills_match(skill1: str, skill2: str) -> bool:
+
+    s1 = skill1.lower()
+    s2 = skill2.lower()
+
+    if s1 == s2:
+        return True
+
+    return (
+            s2 in skill_variants(s1)
+            or
+            s1 in skill_variants(s2)
+    )
+
 
 # ── Request / Response models ─────────────────────────────────────────────────
 
@@ -99,8 +140,13 @@ def keyword_score(resume_text: str, skills: list[str]) -> tuple[float, list[str]
     matched_weight = 0
 
     for skill in skills:
-        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-        count = len(re.findall(pattern, resume_lower))
+
+        variants = skill_variants(skill)
+        count = 0
+
+        for variant in variants:
+            pattern = r'\b' + re.escape(variant) + r'\b'
+            count += len(re.findall(pattern, resume_lower))
 
         if count == 0:
             weight = 0
@@ -119,6 +165,7 @@ def keyword_score(resume_text: str, skills: list[str]) -> tuple[float, list[str]
         matched_weight += weight
 
     score = (matched_weight / total_weight * 100) if total_weight > 0 else 0
+
     return round(score, 2), matched, missing
 
 
@@ -156,11 +203,23 @@ def generate_summary(final_score: float, keyword_pct: float, tfidf_pct: float,
             f"{'Minor gaps in: ' + missing_preview + '.' if missing else 'Excellent skill coverage.'}"
         )
     elif final_score >= 50:
+
+        if missing:
+            return (
+                f"Moderate match ({final_score}%). "
+                f"Keyword coverage: {keyword_pct}%, "
+                f"Content similarity: {tfidf_pct}%, "
+                f"Semantic alignment: {semantic_pct}%. "
+                f"Missing skills: {missing_preview}. "
+                f"Tailor your resume and strengthen these areas."
+            )
+
         return (
             f"Moderate match ({final_score}%). "
-            f"Keyword coverage: {keyword_pct}%, Content similarity: {tfidf_pct}%, "
+            f"Keyword coverage: {keyword_pct}%, "
+            f"Content similarity: {tfidf_pct}%, "
             f"Semantic alignment: {semantic_pct}%. "
-            f"Missing skills: {missing_preview}. Tailor your resume and add relevant projects."
+            f"Strong skill coverage with no major gaps detected."
         )
     else:
         return (
@@ -175,7 +234,6 @@ def generate_summary(final_score: float, keyword_pct: float, tfidf_pct: float,
 
 def detect_weak_areas(resume_text: str, missing_skills: list[str],
                       job_description: str, tfidf_pct: float, semantic_pct: float) -> list[str]:
-
     weak_areas = []
     resume_lower = resume_text.lower()
 
@@ -337,9 +395,11 @@ def analyze(request: AnalyzeRequest):
         recommendationsSummary=summary
     )
 
+
 class ExtractTextRequest(BaseModel):
     fileData: list[int]
     fileType: str
+
 
 @app.post("/extract-text")
 def extract_resume_text(request: ExtractTextRequest):
@@ -353,6 +413,7 @@ def extract_resume_text(request: ExtractTextRequest):
     return {
         "parsedText": text
     }
+
 
 @app.post("/suggest", response_model=SuggestResponse)
 def suggest(request: SuggestRequest):
@@ -390,53 +451,81 @@ def suggest(request: SuggestRequest):
 
 @app.post("/match-jobs", response_model=list[JobMatchResult])
 def match_jobs(request: JobMatchBatchRequest):
-
     resume_text = request.resume.resumeText
     resume_skills = request.resume.resumeSkills
 
     results = []
 
     for job in request.jobs:
-        # Keyword match
+
         required = job.jobSkills
-        matched = [s for s in resume_skills
-                   if any(r.lower() == s.lower() for r in required)]
-        missing = [r for r in required
-                   if not any(s.lower() == r.lower() for s in resume_skills)]
 
-        kw_pct = round((len(matched) / len(required) * 100), 2) if required else 0
+        matched = [
+            s for s in resume_skills
+            if any(skills_match(s, r) for r in required)
+        ]
 
-        # Semantic similarity between resume and job description
-        sem_pct = semantic_score_value(resume_text, job.jobDescription)
+        missing = [
+            r for r in required
+            if not any(skills_match(r, s) for s in resume_skills)
+        ]
 
-        # TF-IDF similarity
-        tf_pct = tfidf_score(resume_text, job.jobDescription)
+        kw_pct = round(
+            (len(matched) / len(required) * 100),
+            2
+        ) if required else 0
 
-        # Combined match score
-        match_pct = round((kw_pct * 0.4) + (tf_pct * 0.3) + (sem_pct * 0.3), 2)
+        sem_pct = semantic_score_value(
+            resume_text,
+            job.jobDescription
+        )
 
-        # Generate a human-readable why-match explanation
+        tf_pct = tfidf_score(
+            resume_text,
+            job.jobDescription
+        )
+
+        match_pct = round(
+            (kw_pct * 0.4)
+            + (tf_pct * 0.3)
+            + (sem_pct * 0.3),
+            2
+        )
+
         if match_pct >= 70:
-            why = f"Strong fit — your skills and experience closely align with this {job.jobTitle} role."
+            why = (
+                f"Strong fit — your skills and experience closely align "
+                f"with this {job.jobTitle} role."
+            )
         elif match_pct >= 40:
-            why = (f"Partial fit — you match {len(matched)} of {len(required)} required skills. "
-                   f"{'Gap areas: ' + ', '.join(missing[:3]) if missing else ''}")
+            why = (
+                f"Partial fit — you match {len(matched)} of "
+                f"{len(required)} required skills. "
+                f"{'Gap areas: ' + ', '.join(missing[:3]) if missing else ''}"
+            )
         else:
-            why = (f"Low fit — significant skill gap for this role. "
-                   f"Missing: {', '.join(missing[:3]) if missing else 'core required skills'}.")
+            why = (
+                f"Low fit — significant skill gap for this role. "
+                f"Missing: {', '.join(missing[:3]) if missing else 'core required skills'}."
+            )
 
-        results.append(JobMatchResult(
-            jobId=job.jobId,
-            jobTitle=job.jobTitle,
-            jobType=job.jobType,
-            experienceLevel=job.experienceLevel,
-            matchPercentage=match_pct,
-            matchedSkills=matched,
-            missingSkills=missing,
-            semanticSimilarity=sem_pct,
-            whyMatch=why
-        ))
+        results.append(
+            JobMatchResult(
+                jobId=job.jobId,
+                jobTitle=job.jobTitle,
+                jobType=job.jobType,
+                experienceLevel=job.experienceLevel,
+                matchPercentage=match_pct,
+                matchedSkills=matched,
+                missingSkills=missing,
+                semanticSimilarity=sem_pct,
+                whyMatch=why
+            )
+        )
 
-    # Sort by match percentage descending, return top 5
-    results.sort(key=lambda x: x.matchPercentage, reverse=True)
+    results.sort(
+        key=lambda x: x.matchPercentage,
+        reverse=True
+    )
+
     return results[:5]
