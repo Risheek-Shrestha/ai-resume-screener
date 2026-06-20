@@ -38,8 +38,7 @@ public class Resume {
     @Column(nullable = false)
     private byte[] fileData;
 
-    @Lob
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String parsedText;
 
     @Column(nullable = false)

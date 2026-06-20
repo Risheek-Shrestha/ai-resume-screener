@@ -1,4 +1,4 @@
-package com.risheek.resume_screener.openApI;
+package com.risheek.resume_screener.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;

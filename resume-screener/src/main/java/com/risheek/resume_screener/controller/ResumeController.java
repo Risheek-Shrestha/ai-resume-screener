@@ -24,7 +24,7 @@ public class ResumeController {
         this.resumeService = resumeService;
     }
 
-    @PostMapping
+    @PostMapping    
     public ResponseEntity<ResumeResponse> uploadResume(@Valid @RequestBody ResumeRequest request){
         return ResponseEntity.status(201).body(resumeService.uploadResume(request));
     }

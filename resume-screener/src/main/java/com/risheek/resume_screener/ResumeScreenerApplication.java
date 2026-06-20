@@ -1,5 +1,6 @@
 package com.risheek.resume_screener;
 
+import com.risheek.resume_screener.util.SkillNormalizer;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -20,7 +21,9 @@ import org.springframework.data.web.config.EnableSpringDataWebSupport;
 public class ResumeScreenerApplication {
 
 	public static void main(String[] args) {
+
 		SpringApplication.run(ResumeScreenerApplication.class, args);
+
 	}
 
 }

@@ -1,9 +1,6 @@
 package com.risheek.resume_screener.service;
 
-import com.risheek.resume_screener.dto.JobRequest;
-import com.risheek.resume_screener.dto.JobResponse;
-import com.risheek.resume_screener.dto.ResumeRequest;
-import com.risheek.resume_screener.dto.ResumeResponse;
+import com.risheek.resume_screener.dto.*;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.User;
@@ -21,8 +18,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ResumeService {
@@ -32,15 +32,19 @@ public class ResumeService {
     private final JobRepository jobRepository;
     private final ScoreRepository scoreRepository;
     private final ScoreService scoreService;
+    private final WebClient webClient;
 
     public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository,
                          JobRepository jobRepository, ScoreRepository scoreRepository,
-                         ScoreService scoreService){
+                         ScoreService scoreService, WebClient.Builder webClientBuilder){
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
         this.scoreRepository = scoreRepository;
         this.scoreService = scoreService;
+        this.webClient = webClientBuilder
+                .baseUrl("http://localhost:8000")
+                .build();
     }
 
     @Transactional
@@ -57,6 +61,21 @@ public class ResumeService {
         resume.setFileName(request.getFileName());
         resume.setFileType(request.getFileType());
         resume.setFileData(request.getFileData());
+
+        Map<String, Object> extractRequest = Map.of(
+                "fileData", toIntList(request.getFileData()),
+                "fileType", request.getFileType()
+        );
+
+        ParsedTextResponse parsedResponse = webClient.post()
+                .uri("/extract-text")
+                .bodyValue(extractRequest)
+                .retrieve()
+                .bodyToMono(ParsedTextResponse.class)
+                .block();
+
+        resume.setParsedText(parsedResponse.getParsedText());
+        resume.setParsedTextAvailable(true);
 
         Resume savedResume = resumeRepository.save(resume);
 
@@ -159,5 +178,15 @@ public class ResumeService {
                 resume.getFileName(),
                 resume.getFileType()
         );
+    }
+
+    private List<Integer> toIntList(byte[] bytes) {
+        Integer[] result = new Integer[bytes.length];
+
+        for (int i = 0; i < bytes.length; i++) {
+            result[i] = bytes[i] & 0xFF;
+        }
+
+        return Arrays.asList(result);
     }
 }
