@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,6 @@ public class SuggestionService {
     private final ResumeRepository resumeRepository;
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
-    private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
 
@@ -41,7 +39,6 @@ public class SuggestionService {
                              ResumeRepository resumeRepository,
                              JobRepository jobRepository,
                              JobSkillRepository jobSkillRepository,
-                             UserRepository userRepository,
                              ObjectMapper objectMapper,
                              WebClient.Builder webClientBuilder,
                              @Value("${ml.service.url}") String mlServiceUrl) {
@@ -49,7 +46,6 @@ public class SuggestionService {
         this.resumeRepository = resumeRepository;
         this.jobRepository = jobRepository;
         this.jobSkillRepository = jobSkillRepository;
-        this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
@@ -207,14 +203,6 @@ public class SuggestionService {
                 job.getExperienceLevel().name(), matchPct, matched, missing, 0.0,
                 "Match based on keyword analysis only (ML service offline)"
         );
-    }
-
-    private List<Integer> toIntList(byte[] bytes) {
-        Integer[] result = new Integer[bytes.length];
-        for (int i = 0; i < bytes.length; i++) {
-            result[i] = (int) bytes[i] & 0xFF;
-        }
-        return Arrays.asList(result);
     }
 
     private List<String> parseJsonList(String json) {

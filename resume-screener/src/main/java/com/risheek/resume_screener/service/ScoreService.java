@@ -58,10 +58,11 @@ public class ScoreService {
                 "jobDescription", resume.getJob().getDescription()
         );
 
-        Score score = new Score();
+        Score score = scoreRepository.findByResumeId(resume.getId())
+                .orElseGet(() -> buildNewScore(resume));
+
         score.setUser(resume.getUser());
         score.setJob(resume.getJob());
-        score.setResume(resume);
 
         try {
             Map response = webClient.post()
@@ -72,17 +73,12 @@ public class ScoreService {
                     .block();
 
             double overallScore = ((Number) response.get("overallScore")).doubleValue();
-            String matchedJson = toJson(response.get("matchedKeywords"));
-            String missingJson = toJson(response.get("missingKeywords"));
-            String summary = (String) response.get("recommendationsSummary");
-
             score.setOverallScore(BigDecimal.valueOf(overallScore));
-            score.setMatchedKeywords(matchedJson);
-            score.setMissingKeywords(missingJson);
-            score.setRecommendationsSummary(summary);
+            score.setMatchedKeywords(toJson(response.get("matchedKeywords")));
+            score.setMissingKeywords(toJson(response.get("missingKeywords")));
+            score.setRecommendationsSummary((String) response.get("recommendationsSummary"));
 
         } catch (Exception e) {
-            // ML service unavailable — save default score so upload doesn't fail
             score.setOverallScore(BigDecimal.ZERO);
             score.setMatchedKeywords("[]");
             score.setMissingKeywords("[]");
@@ -141,4 +137,13 @@ public class ScoreService {
                 score.getRecommendationsSummary()
         );
     }
+
+    private Score buildNewScore(Resume resume) {
+        Score score = new Score();
+        score.setUser(resume.getUser());
+        score.setJob(resume.getJob());
+        score.setResume(resume);
+        return score;
+    }
+
 }

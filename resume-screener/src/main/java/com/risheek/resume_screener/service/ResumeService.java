@@ -9,17 +9,15 @@ import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
-import com.risheek.resume_screener.repository.ScoreRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.reactive.function.client.WebClientException;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,55 +29,43 @@ public class ResumeService {
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
     private final JobRepository jobRepository;
-    private final ScoreRepository scoreRepository;
     private final ScoreService scoreService;
     private final WebClient webClient;
 
     public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository,
-                         JobRepository jobRepository, ScoreRepository scoreRepository,
-                         ScoreService scoreService, WebClient.Builder webClientBuilder,
-                         @Value("${ml.service.url}") String mlServiceUrl){
+                         JobRepository jobRepository, ScoreService scoreService,
+                         WebClient.Builder webClientBuilder, @Value("${ml.service.url}") String mlServiceUrl) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
         this.jobRepository = jobRepository;
-        this.scoreRepository = scoreRepository;
         this.scoreService = scoreService;
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
     @Transactional
     public ResumeResponse uploadResume(@Valid ResumeRequest request) {
+        Resume resume = null;
+        Resume savedResume;
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(()-> new UsernameNotFoundException("Authenticated user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
         Job currentJob = jobRepository.findById(request.getJobId())
                 .orElseThrow(() ->
                         new JobNotFoundException("Job not found"));
-        Resume resume = new Resume();
+        resume = new Resume();
         resume.setUser(currentUser);
         resume.setJob(currentJob);
         resume.setFileName(request.getFileName());
         resume.setFileType(request.getFileType());
         resume.setFileData(request.getFileData());
 
-        Map<String, Object> extractRequest = Map.of(
-                "fileData", toIntList(request.getFileData()),
-                "fileType", request.getFileType()
-        );
+        parseAndSetText(resume, request.getFileData(), request.getFileType());
 
-        ParsedTextResponse parsedResponse = webClient.post()
-                .uri("/extract-text")
-                .bodyValue(extractRequest)
-                .retrieve()
-                .bodyToMono(ParsedTextResponse.class)
-                .block();
+        savedResume = resumeRepository.save(resume);
 
-        resume.setParsedText(parsedResponse.getParsedText());
-        resume.setParsedTextAvailable(true);
-
-        Resume savedResume = resumeRepository.save(resume);
-
-        scoreService.generateScore(savedResume);
+        if (savedResume.getParsedTextAvailable()) {
+            scoreService.generateScore(savedResume);
+        }
 
         return new ResumeResponse(
                 savedResume.getId(),
@@ -92,10 +78,10 @@ public class ResumeService {
     @Transactional
     public ResumeResponse updateResume(Long id, @Valid ResumeRequest request) {
         Resume resume = resumeRepository.findById(id)
-                .orElseThrow(()-> new ResumeNotFoundException("Resume not found with id" + id));
+                .orElseThrow(() -> new ResumeNotFoundException("Resume not found with id" + id));
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(()-> new UsernameNotFoundException("Authenticated user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
         Job currentJob = jobRepository.findById(request.getJobId())
                 .orElseThrow(() ->
                         new JobNotFoundException("Job not found"));
@@ -110,7 +96,14 @@ public class ResumeService {
         resume.setFileType(request.getFileType());
         resume.setFileData(request.getFileData());
 
+        parseAndSetText(resume, request.getFileData(), request.getFileType());
+
         Resume savedResume = resumeRepository.save(resume);
+
+        if (savedResume.getParsedTextAvailable()) {
+            scoreService.generateScore(savedResume);
+        }
+
         return new ResumeResponse(
                 savedResume.getId(),
                 savedResume.getJob().getId(),
@@ -125,7 +118,7 @@ public class ResumeService {
                 .orElseThrow(() -> new ResumeNotFoundException("Resume not found"));
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(()-> new UsernameNotFoundException("Authenticated user not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
         if (!resume.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("You are not allowed to delete this resume");
         }
@@ -189,4 +182,26 @@ public class ResumeService {
 
         return Arrays.asList(result);
     }
+
+    private void parseAndSetText(Resume resume, byte[] fileData, String fileType) {
+        Map<String, Object> extractRequest = Map.of(
+                "fileData", toIntList(fileData),
+                "fileType", fileType
+        );
+        try {
+            ParsedTextResponse parsedResponse = webClient.post()
+                    .uri("/extract-text")
+                    .bodyValue(extractRequest)
+                    .retrieve()
+                    .bodyToMono(ParsedTextResponse.class)
+                    .block();
+
+            resume.setParsedText(parsedResponse.getParsedText());
+            resume.setParsedTextAvailable(true);
+        } catch (WebClientException e) {
+            resume.setParsedText("");
+            resume.setParsedTextAvailable(false);
+        }
+    }
+
 }
