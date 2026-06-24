@@ -2,6 +2,7 @@ package com.risheek.resume_screener.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
+import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.Job;
@@ -11,7 +12,11 @@ import com.risheek.resume_screener.service.CustomUserDetailService;
 import com.risheek.resume_screener.service.JobService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -31,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(JobController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JobControllerTest.CacheTestConfig.class})
 class JobControllerTest {
 
     @Autowired
@@ -155,8 +160,8 @@ class JobControllerTest {
                 LocalDateTime.now()
         );
 
-        Page<JobResponse> response =
-                new PageImpl<>(List.of(job1, job2));
+        JobPageResponse response = new JobPageResponse(
+                List.of(job1, job2), 0, 10, 2L, 1, true);
 
         when(jobService.getAllJobs(0, 10))
                 .thenReturn(response);
@@ -185,8 +190,8 @@ class JobControllerTest {
                 LocalDateTime.now()
         );
 
-        Page<JobResponse> response =
-                new PageImpl<>(List.of(job));
+        JobPageResponse response = new JobPageResponse(
+                List.of(job), 2, 5, 1L, 1, true);
 
         when(jobService.getAllJobs(2, 5))
                 .thenReturn(response);
@@ -302,5 +307,11 @@ class JobControllerTest {
         verify(jobService).deleteJob(999L);
     }
 
-
+    @TestConfiguration
+    static class CacheTestConfig {
+        @Bean
+        public CacheManager cacheManager() {
+            return new ConcurrentMapCacheManager("jobs");
+        }
+    }
 }

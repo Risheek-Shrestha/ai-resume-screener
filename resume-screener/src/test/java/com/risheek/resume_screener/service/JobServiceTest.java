@@ -1,5 +1,6 @@
 package com.risheek.resume_screener.service;
 
+import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.Job;
@@ -17,8 +18,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
@@ -427,7 +433,7 @@ class JobServiceTest {
         when(jobRepository.findAll(any(Pageable.class)))
                 .thenReturn(page);
 
-        Page<JobResponse> jobs = jobService.getAllJobs(0, 10);
+        JobPageResponse jobs = jobService.getAllJobs(0, 10);
 
         assertThat(jobs.getContent()).hasSize(2);
 
@@ -447,15 +453,18 @@ class JobServiceTest {
 
     @Test
     void getAllJobs_EmptyList() {
-
-        Page<Job> page = new PageImpl<>(List.of());
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Job> page = new PageImpl<>(List.of(), pageable, 0);
 
         when(jobRepository.findAll(any(Pageable.class)))
                 .thenReturn(page);
 
-        Page<JobResponse> jobs = jobService.getAllJobs(0, 10);
+        JobPageResponse jobs = jobService.getAllJobs(0, 10);
 
-        assertThat(jobs).isEmpty();
+        assertThat(jobs).isNotNull();
+        assertThat(jobs.getContent()).isEmpty();
+        assertThat(jobs.getTotalElements()).isZero();
+        assertThat(jobs.getTotalPages()).isZero();
+        verify(jobRepository).findAll(any(Pageable.class));
     }
-
 }

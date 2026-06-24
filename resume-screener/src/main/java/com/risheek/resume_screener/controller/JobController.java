@@ -1,5 +1,6 @@
 package com.risheek.resume_screener.controller;
 
+import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.service.JobService;
@@ -29,7 +30,7 @@ public class JobController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<JobResponse>> getAllJobs(
+    public ResponseEntity<JobPageResponse> getAllJobs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
