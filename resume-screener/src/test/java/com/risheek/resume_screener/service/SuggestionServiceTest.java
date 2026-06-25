@@ -27,6 +27,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,8 @@ class SuggestionServiceTest {
         job.setId(50L);
         job.setTitle("Backend Developer");
         job.setDescription("Build and maintain REST APIs");
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Resume resume = new Resume();
         resume.setId(100L);
@@ -336,6 +339,8 @@ class SuggestionServiceTest {
         job.setDescription("Backend API development");
         job.setJobType(Job.JobType.FULL_TIME);
         job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         JobSkill skill = new JobSkill();
         skill.setSkillName("Java");
@@ -451,6 +456,8 @@ class SuggestionServiceTest {
             job.setDescription("Description " + i);
             job.setJobType(Job.JobType.FULL_TIME);
             job.setExperienceLevel(Job.ExperienceLevel.MID);
+            job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+            job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
             jobs.add(job);
         }
 
@@ -561,6 +568,8 @@ class SuggestionServiceTest {
         job.setDescription("Build and maintain REST APIs");
         job.setJobType(Job.JobType.FULL_TIME);
         job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Resume resume = new Resume();
         resume.setId(100L);
