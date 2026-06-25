@@ -203,6 +203,8 @@ class JobServiceTest {
         request.setDescription("Need Backend Developer");
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         request.setSkills(List.of("Java", "Spring Boot"));
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 11, 17, 0, 0 ));
 
         when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> {
             Job j = invocation.getArgument(0);
@@ -238,6 +240,12 @@ class JobServiceTest {
         assertThat(response.getId()).isEqualTo(10L);
         assertThat(response.getTitle()).isEqualTo("Backend Developer");
 
+        assertThat(savedJob.getApplicationStartsAt())
+                .isEqualTo(request.getApplicationStartsAt());
+
+        assertThat(savedJob.getApplicationDeadline())
+                .isEqualTo(request.getApplicationDeadline());
+
     }
 
     @Test
@@ -261,7 +269,7 @@ class JobServiceTest {
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         request.setSkills(List.of("Java", "Spring Boot"));
         request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 17, 17, 0, 0 ));
 
         assertThrows(JobNotFoundException.class,
         () -> jobService.updateJob(10L, request));

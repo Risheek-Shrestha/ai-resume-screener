@@ -25,7 +25,9 @@ public class JobRequest {
 
     private List<String> skills;
 
+    @NotNull(message = "Enter application start date and time")
     private LocalDateTime applicationStartsAt;
 
+    @NotNull(message = "Enter application deadline date and time")
     private LocalDateTime applicationDeadline;
 }

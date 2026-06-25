@@ -1,6 +1,8 @@
 package com.risheek.resume_screener.dto;
 
+import com.risheek.resume_screener.entity.ApplicationWindowStatus;
 import com.risheek.resume_screener.entity.Job;
+import com.risheek.resume_screener.service.JobService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,4 +25,5 @@ public class JobResponse implements Serializable {
     private LocalDateTime createdAt;
     private LocalDateTime applicationStartsAt;
     private LocalDateTime applicationDeadline;
+    private ApplicationWindowStatus applicationStatus;
 }

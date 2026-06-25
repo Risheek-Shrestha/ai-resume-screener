@@ -6,6 +6,7 @@ import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.Job;
+import com.risheek.resume_screener.entity.ApplicationWindowStatus;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.CustomUserDetailService;
@@ -124,7 +125,8 @@ class JobControllerTest {
                 1L, "Backend Engineer", "Spring Boot role",
                 null, null, List.of("Java", "Spring"), LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),
+                ApplicationWindowStatus.OPEN);
 
         when(jobService.getJobById(1L)).thenReturn(response);
 
@@ -141,7 +143,8 @@ class JobControllerTest {
                 1L, "Backend Engineer", "Spring Boot role",
                 null, null, List.of("Java", "Spring"), LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),
+                ApplicationWindowStatus.OPEN);
 
         when(jobService.getJobById(1L))
                 .thenThrow(new JobNotFoundException("Job not found"));
@@ -158,7 +161,8 @@ class JobControllerTest {
                 1L, "Backend Engineer", "Spring Boot role",
                 null, null, List.of("Java", "Spring"), LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),ApplicationWindowStatus.OPEN);
+
 
         JobResponse job2 = new JobResponse(
                 2L,
@@ -169,7 +173,8 @@ class JobControllerTest {
                 List.of("Java"),
                 LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),
+                ApplicationWindowStatus.OPEN
         );
 
         JobPageResponse response = new JobPageResponse(
@@ -201,7 +206,8 @@ class JobControllerTest {
                 List.of("Java"),
                 LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),
+                ApplicationWindowStatus.OPEN
         );
 
         JobPageResponse response = new JobPageResponse(
@@ -241,7 +247,8 @@ class JobControllerTest {
                 List.of("Java", "Spring"),
                 LocalDateTime.now(),
                 LocalDateTime.of(2026, 6, 29, 0, 0, 0),
-                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0),
+                ApplicationWindowStatus.OPEN
         );
 
         when(jobService.updateJob(1L, request))

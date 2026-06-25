@@ -3,8 +3,10 @@ package com.risheek.resume_screener.service;
 import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
+import com.risheek.resume_screener.entity.ApplicationWindowStatus;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
+import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.JobRepository;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.risheek.resume_screener.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -49,8 +52,10 @@ public class JobService {
         job.setJobType(request.getJobType());
         job.setExperienceLevel(request.getExperienceLevel());
         job.setUser(currentUser);
+        validateApplicationWindow(request);
         job.setApplicationStartsAt(request.getApplicationStartsAt());
         job.setApplicationDeadline(request.getApplicationDeadline());
+
 
         Job savedJob = jobRepository.save(job);
         saveSkills(savedJob, request.getSkills());
@@ -67,8 +72,10 @@ public class JobService {
         job.setDescription(request.getDescription());
         job.setJobType(request.getJobType());
         job.setExperienceLevel(request.getExperienceLevel());
+        validateApplicationWindow(request);
         job.setApplicationDeadline(request.getApplicationDeadline());
         job.setApplicationStartsAt(request.getApplicationStartsAt());
+
 
         Job savedJob = jobRepository.save(job);
 
@@ -133,7 +140,32 @@ public class JobService {
                 skillNames,
                 job.getCreatedAt(),
                 job.getApplicationStartsAt(),
-                job.getApplicationDeadline()
+                job.getApplicationDeadline(),
+                getApplicationStatus(job)
         );
+    }
+
+    private void validateApplicationWindow(JobRequest request) {
+        if (!request.getApplicationStartsAt()
+                .isBefore(request.getApplicationDeadline())) {
+
+            throw new InvalidApplicationWindowException(
+                    "Application start time must be before application deadline");
+        }
+    }
+
+    private ApplicationWindowStatus getApplicationStatus(Job job) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        if (now.isBefore(job.getApplicationStartsAt())) {
+            return ApplicationWindowStatus.NOT_STARTED;
+        }
+
+        if (now.isAfter(job.getApplicationDeadline())) {
+            return ApplicationWindowStatus.CLOSED;
+        }
+
+        return ApplicationWindowStatus.OPEN;
     }
 }
