@@ -10,51 +10,46 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "resumes")
+@Table(name = "applications",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        columnNames = {"user_id", "job_id"}
+                )
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Resume {
+public class Application {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String resumeName;
-
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "job_id", nullable = false)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "job_id")
     private Job job;
 
-    @Column(nullable = false)
-    private String fileName;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "resume_id")
+    private Resume resume;
 
-    @Column(nullable = false)
-    private String fileType;
+    @OneToOne
+    @JoinColumn(name = "score_id")
+    private Score score;
 
-    @Lob
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private byte[] fileData;
-
-    @Column(columnDefinition = "TEXT")
-    private String parsedText;
-
-    @Column(nullable = false)
-    private Boolean parsedTextAvailable = false;
+    private ApplicationStatus status;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
-    private LocalDateTime uploadedAt;
+    private LocalDateTime appliedAt;
 
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
-
-    @Column(nullable = false)
-    private Boolean active = true;
 }

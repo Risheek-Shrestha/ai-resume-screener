@@ -9,9 +9,5 @@ import java.util.Optional;
 public interface ScoreRepository
         extends JpaRepository<Score, Long> {
 
-    Optional<Score> findByResumeId(Long resumeId);
-
-    List<Score> findByJobId(Long jobId);
-
-    List<Score> findByUserId(Long userId);
+    Optional<Score> findByApplicationId(Long applicationId);
 }

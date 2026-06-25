@@ -30,7 +30,7 @@ public class Score {
     @JoinColumn(name = "job_id", nullable = false)
     private Job job;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "resume_id", nullable = false)
     private Resume resume;
 
