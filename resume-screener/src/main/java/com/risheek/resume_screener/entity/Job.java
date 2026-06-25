@@ -65,4 +65,10 @@ public class Job {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(nullable = false)
+    private LocalDateTime applicationStartsAt;
+
+    @Column(nullable = false)
+    private LocalDateTime applicationDeadline;
 }

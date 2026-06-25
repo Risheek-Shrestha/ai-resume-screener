@@ -12,7 +12,6 @@ import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,7 +21,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.risheek.resume_screener.entity.User;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class JobService {
@@ -51,6 +49,8 @@ public class JobService {
         job.setJobType(request.getJobType());
         job.setExperienceLevel(request.getExperienceLevel());
         job.setUser(currentUser);
+        job.setApplicationStartsAt(request.getApplicationStartsAt());
+        job.setApplicationDeadline(request.getApplicationDeadline());
 
         Job savedJob = jobRepository.save(job);
         saveSkills(savedJob, request.getSkills());
@@ -67,6 +67,8 @@ public class JobService {
         job.setDescription(request.getDescription());
         job.setJobType(request.getJobType());
         job.setExperienceLevel(request.getExperienceLevel());
+        job.setApplicationDeadline(request.getApplicationDeadline());
+        job.setApplicationStartsAt(request.getApplicationStartsAt());
 
         Job savedJob = jobRepository.save(job);
 
@@ -129,7 +131,9 @@ public class JobService {
                 job.getJobType(),
                 job.getExperienceLevel(),
                 skillNames,
-                job.getCreatedAt()
+                job.getCreatedAt(),
+                job.getApplicationStartsAt(),
+                job.getApplicationDeadline()
         );
     }
 }

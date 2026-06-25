@@ -13,6 +13,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -63,6 +64,8 @@ class JobSkillRepositoryTest {
         job.setJobType(Job.JobType.FULL_TIME);
         job.setExperienceLevel(Job.ExperienceLevel.MID);
         job.setUser(currentUser);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Job currentJob = jobRepository.save(job);
 
@@ -101,6 +104,8 @@ class JobSkillRepositoryTest {
         job.setJobType(Job.JobType.FULL_TIME);
         job.setExperienceLevel(Job.ExperienceLevel.MID);
         job.setUser(currentUser);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Job currentJob = jobRepository.save(job);
 

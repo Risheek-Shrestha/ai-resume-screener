@@ -18,10 +18,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +26,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,6 +73,8 @@ class JobServiceTest {
         request.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
         request.setJobType(Job.JobType.FULL_TIME);
         request.setSkills(List.of("Java", "Python", "C++"));
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
@@ -130,6 +129,8 @@ class JobServiceTest {
         request.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
         request.setJobType(Job.JobType.FULL_TIME);
         request.setSkills(List.of("Java", "Python", "C++"));
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
 
         assertThrows(UserNotFoundException.class,
@@ -152,6 +153,8 @@ class JobServiceTest {
         request.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
         request.setJobType(Job.JobType.FULL_TIME);
         request.setSkills(List.of());
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(user));
@@ -189,6 +192,8 @@ class JobServiceTest {
         job.setDescription(".....");
         job.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
         job.setJobType(Job.JobType.FULL_TIME);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
 
@@ -255,6 +260,8 @@ class JobServiceTest {
         request.setDescription("Need Backend Developer");
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         request.setSkills(List.of("Java", "Spring Boot"));
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         assertThrows(JobNotFoundException.class,
         () -> jobService.updateJob(10L, request));
@@ -290,6 +297,8 @@ class JobServiceTest {
         request.setJobType(Job.JobType.FULL_TIME);
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         request.setSkills(List.of());
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         JobResponse response = jobService.updateJob(10L, request);
 
@@ -358,6 +367,8 @@ class JobServiceTest {
         job.setDescription(".....");
         job.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         job.setJobType(Job.JobType.FULL_TIME);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
 
@@ -409,6 +420,8 @@ class JobServiceTest {
         job1.setDescription(".....");
         job1.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
         job1.setJobType(Job.JobType.INTERNSHIP);
+        job1.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job1.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Job job2 = new Job();
         job2.setUser(user);
@@ -417,6 +430,8 @@ class JobServiceTest {
         job2.setDescription(".....");
         job2.setExperienceLevel(Job.ExperienceLevel.MID);
         job2.setJobType(Job.JobType.PART_TIME);
+        job2.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job2.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
 
         Page<Job> page = new PageImpl<>(List.of(job1, job2));
 

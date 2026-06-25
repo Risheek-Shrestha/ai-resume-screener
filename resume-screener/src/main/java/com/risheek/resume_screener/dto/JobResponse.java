@@ -21,4 +21,6 @@ public class JobResponse implements Serializable {
     private Job.ExperienceLevel experienceLevel;
     private List<String> skills;
     private LocalDateTime createdAt;
+    private LocalDateTime applicationStartsAt;
+    private LocalDateTime applicationDeadline;
 }

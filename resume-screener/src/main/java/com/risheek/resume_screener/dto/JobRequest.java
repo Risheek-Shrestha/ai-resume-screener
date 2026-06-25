@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -23,4 +24,8 @@ public class JobRequest {
     private Job.ExperienceLevel experienceLevel;
 
     private List<String> skills;
+
+    private LocalDateTime applicationStartsAt;
+
+    private LocalDateTime applicationDeadline;
 }

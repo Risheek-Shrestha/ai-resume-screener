@@ -18,8 +18,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -27,6 +25,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -42,7 +43,10 @@ class JobControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @MockitoBean
     private JobService jobService;
@@ -55,13 +59,15 @@ class JobControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void createJob_validRequest () throws Exception {
+    void createJob_validRequest() throws Exception {
         JobRequest request = new JobRequest();
         request.setTitle("Java Developer");
         request.setDescription("Spring Boot Developer");
         request.setSkills(List.of("Java", "Spring Boot"));
         request.setJobType(Job.JobType.FULL_TIME);
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         JobResponse response = new JobResponse();
         response.setId(1L);
@@ -84,17 +90,21 @@ class JobControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void createJob_invalidRequest () throws Exception {
+    void createJob_invalidRequest() throws Exception {
 
         JobRequest request = new JobRequest();
         request.setTitle("Java Developer");
         request.setDescription("Spring Boot Developer");
         request.setJobType(Job.JobType.FULL_TIME);
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         JobResponse response = new JobResponse();
         response.setId(1L);
         response.setTitle("Java Developer");
         response.setDescription("Spring Boot Developer");
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 29, 0, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         when(jobService.createJob(any(JobRequest.class)))
                 .thenReturn(response);
@@ -112,7 +122,9 @@ class JobControllerTest {
     void getJobById_existingId_returns200() throws Exception {
         JobResponse response = new JobResponse(
                 1L, "Backend Engineer", "Spring Boot role",
-                null, null, List.of("Java", "Spring"), LocalDateTime.now());
+                null, null, List.of("Java", "Spring"), LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         when(jobService.getJobById(1L)).thenReturn(response);
 
@@ -123,11 +135,13 @@ class JobControllerTest {
     }
 
     @Test
-    void getJobById_nonExistingId () throws Exception {
+    void getJobById_nonExistingId() throws Exception {
 
         JobResponse response = new JobResponse(
                 1L, "Backend Engineer", "Spring Boot role",
-                null, null, List.of("Java", "Spring"), LocalDateTime.now());
+                null, null, List.of("Java", "Spring"), LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         when(jobService.getJobById(1L))
                 .thenThrow(new JobNotFoundException("Job not found"));
@@ -141,14 +155,10 @@ class JobControllerTest {
     void getAllJobs_defaultPagination() throws Exception {
 
         JobResponse job1 = new JobResponse(
-                1L,
-                "Backend Engineer",
-                "Spring Boot role",
-                Job.JobType.FULL_TIME,
-                Job.ExperienceLevel.SENIOR,
-                List.of("Java", "Spring"),
-                LocalDateTime.now()
-        );
+                1L, "Backend Engineer", "Spring Boot role",
+                null, null, List.of("Java", "Spring"), LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         JobResponse job2 = new JobResponse(
                 2L,
@@ -157,7 +167,9 @@ class JobControllerTest {
                 Job.JobType.INTERNSHIP,
                 Job.ExperienceLevel.JUNIOR,
                 List.of("Java"),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
         );
 
         JobPageResponse response = new JobPageResponse(
@@ -187,7 +199,9 @@ class JobControllerTest {
                 null,
                 null,
                 List.of("Java"),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
         );
 
         JobPageResponse response = new JobPageResponse(
@@ -215,6 +229,8 @@ class JobControllerTest {
         request.setSkills(List.of("Java", "Spring"));
         request.setJobType(Job.JobType.FULL_TIME);
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         JobResponse response = new JobResponse(
                 1L,
@@ -223,7 +239,9 @@ class JobControllerTest {
                 Job.JobType.FULL_TIME,
                 Job.ExperienceLevel.SENIOR,
                 List.of("Java", "Spring"),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 29, 0, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0, 0)
         );
 
         when(jobService.updateJob(1L, request))
@@ -251,6 +269,8 @@ class JobControllerTest {
         request.setJobType(Job.JobType.FULL_TIME);
         request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
         request.setSkills(List.of("Java"));
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
 
         when(jobService.updateJob(eq(999L), any(JobRequest.class)))
                 .thenThrow(new JobNotFoundException("Job not found"));
