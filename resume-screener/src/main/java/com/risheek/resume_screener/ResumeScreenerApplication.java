@@ -18,7 +18,6 @@ import org.springframework.data.web.config.EnableSpringDataWebSupport;
 		bearerFormat = "JWT"
 )
 @SpringBootApplication
-@EnableCaching
 @EnableSpringDataWebSupport(pageSerializationMode = EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO)
 public class ResumeScreenerApplication {
 

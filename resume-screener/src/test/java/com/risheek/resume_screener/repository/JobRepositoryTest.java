@@ -38,6 +38,8 @@ class JobRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
+
+
     @Test
     void shouldCreateAndFindJob(){
 
