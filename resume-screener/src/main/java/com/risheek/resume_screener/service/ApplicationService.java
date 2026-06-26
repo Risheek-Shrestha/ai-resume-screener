@@ -128,6 +128,34 @@ public class ApplicationService {
                 .toList();
     }
 
+    public ApplicationResponse updateApplicationStatus(
+            Long applicationId,
+            ApplicationStatus newStatus) {
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() ->
+                        new ApplicationNotFoundException("Application not found"));
+
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("Authenticated user not found"));
+
+        if (!application.getJob().getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedAccessException(
+                    "You are not allowed to update this application");
+        }
+
+        validateStatusTransition(application.getStatus(), newStatus);
+
+        application.setStatus(newStatus);
+
+        return mapToResponse(applicationRepository.save(application));
+    }
+
     private ApplicationResponse mapToResponse(Application application) {
         return new ApplicationResponse(
                 application.getId(),
@@ -138,5 +166,33 @@ public class ApplicationService {
                 application.getStatus(),
                 application.getAppliedAt()
         );
+    }
+
+    private void validateStatusTransition(
+            ApplicationStatus current,
+            ApplicationStatus next) {
+
+        switch (current) {
+
+            case APPLIED -> {
+                if (next != ApplicationStatus.SHORTLISTED &&
+                        next != ApplicationStatus.REJECTED) {
+                    throw new InvalidApplicationStatusException(
+                            "Application can only move from APPLIED to SHORTLISTED or REJECTED");
+                }
+            }
+
+            case SHORTLISTED -> {
+                if (next != ApplicationStatus.HIRED &&
+                        next != ApplicationStatus.REJECTED) {
+                    throw new InvalidApplicationStatusException(
+                            "Shortlisted application can only move to HIRED or REJECTED");
+                }
+            }
+
+            case HIRED, REJECTED ->
+                    throw new InvalidApplicationStatusException(
+                            "Application is already in a terminal state");
+        }
     }
 }

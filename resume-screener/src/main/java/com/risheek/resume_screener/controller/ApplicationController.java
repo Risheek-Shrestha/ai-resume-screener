@@ -1,9 +1,6 @@
 package com.risheek.resume_screener.controller;
 
-import com.risheek.resume_screener.dto.ApplicationRequest;
-import com.risheek.resume_screener.dto.ApplicationResponse;
-import com.risheek.resume_screener.dto.ApplicationResultResponse;
-import com.risheek.resume_screener.dto.SuggestionResponse;
+import com.risheek.resume_screener.dto.*;
 import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.ApplicationStatus;
 import com.risheek.resume_screener.service.ApplicationService;
@@ -66,6 +63,19 @@ public class ApplicationController {
 
         return ResponseEntity.ok(
                 applicationService.getAcceptedApplicationsForJob(jobId));
+    }
+
+    @PatchMapping("/{applicationId}/status")
+    public ResponseEntity<ApplicationResponse> updateApplicationStatus(
+            @PathVariable Long applicationId,
+            @Valid @RequestBody UpdateApplicationStatusRequest request) {
+
+        return ResponseEntity.ok(
+                applicationService.updateApplicationStatus(
+                        applicationId,
+                        request.getStatus()
+                )
+        );
     }
 
     private String resolveMessage(ApplicationStatus status, BigDecimal score) {
