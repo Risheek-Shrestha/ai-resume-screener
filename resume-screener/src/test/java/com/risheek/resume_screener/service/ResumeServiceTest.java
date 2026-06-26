@@ -87,6 +87,7 @@ class ResumeServiceTest {
 
         ResumeRequest request = new ResumeRequest();
         request.setJobId(10L);
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3});
@@ -139,6 +140,7 @@ class ResumeServiceTest {
 
         ResumeRequest request = new ResumeRequest();
         request.setJobId(10L);
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3});
@@ -178,6 +180,7 @@ class ResumeServiceTest {
         when(jobRepository.findById(10L)).thenReturn(Optional.empty());
 
         ResumeRequest request = new ResumeRequest();
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3, 4});
@@ -203,6 +206,7 @@ class ResumeServiceTest {
         resume.setUser(user);
         resume.setJob(job);
         resume.setId(100L);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("pdf");
         resume.setFileData(new byte[]{1, 2, 3});
@@ -213,6 +217,7 @@ class ResumeServiceTest {
 
         ResumeRequest request = new ResumeRequest();
         request.setFileName("resume.pdf");
+        request.setResumeName("Backend Developer Resume");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3, 4});
         request.setJobId(job.getId());
@@ -266,6 +271,7 @@ class ResumeServiceTest {
         resume.setUser(user);
         resume.setJob(job);
         resume.setId(100L);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("pdf");
         resume.setFileData(new byte[]{1, 2, 3});
@@ -325,6 +331,7 @@ class ResumeServiceTest {
         when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
 
         ResumeRequest request = new ResumeRequest();
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3, 4});
@@ -342,6 +349,7 @@ class ResumeServiceTest {
 
         ResumeRequest request = new ResumeRequest();
         request.setJobId(10L);
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData(new byte[]{1, 2, 3, 4});
@@ -418,6 +426,7 @@ class ResumeServiceTest {
         resume.setUser(user);
         resume.setJob(job);
         resume.setId(100L);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("pdf");
         resume.setFileData(new byte[]{1, 2, 3});
@@ -462,6 +471,7 @@ class ResumeServiceTest {
         resume1.setUser(user);
         resume1.setJob(job);
         resume1.setId(100L);
+        resume1.setResumeName("Backend Developer Resume");
         resume1.setFileName("resume.pdf");
         resume1.setFileType("pdf");
         resume1.setFileData(new byte[]{1, 2, 3});
@@ -471,6 +481,7 @@ class ResumeServiceTest {
         resume2.setUser(user);
         resume2.setJob(job);
         resume2.setId(101L);
+        resume2.setResumeName("Backend Developer Resume");
         resume2.setFileName("resume2.pdf");
         resume2.setFileType("pdf");
         resume2.setFileData(new byte[]{1, 2, 3, 4});
@@ -480,12 +491,13 @@ class ResumeServiceTest {
         resume3.setUser(user);
         resume3.setJob(job);
         resume3.setId(102L);
+        resume3.setResumeName("Backend Developer Resume");
         resume3.setFileName("resume2.pdf");
         resume3.setFileType("pdf");
         resume3.setFileData(new byte[]{2, 3});
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
-        when(resumeRepository.findByUserId(1L)).thenReturn(List.of(resume1, resume2, resume3));
+        when(resumeRepository.findByUserIdOrderByUploadedAtDesc(1L)).thenReturn(List.of(resume1, resume2, resume3));
 
         List<ResumeResponse> response = resumeService.getMyResumes();
 
@@ -506,7 +518,7 @@ class ResumeServiceTest {
         user.setEmail("test@example.com");
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
-        when(resumeRepository.findByUserId(1L)).thenReturn(List.of());
+        when(resumeRepository.findByUserIdOrderByUploadedAtDesc(1L)).thenReturn(List.of());
 
         List<ResumeResponse> response = resumeService.getMyResumes();
 

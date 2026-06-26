@@ -13,6 +13,8 @@ public class ResumeResponse {
 
     private Long jobId;
 
+    private String resumeName;
+
     private String fileName;
 
     private String fileType;

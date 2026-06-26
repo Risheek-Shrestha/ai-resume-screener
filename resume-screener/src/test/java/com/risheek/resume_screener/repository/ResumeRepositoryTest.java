@@ -72,6 +72,7 @@ class ResumeRepositoryTest {
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
+        resume.setResumeName("Backend Developer Resume");
 
         Resume savedResume = resumeRepository.save(resume);
         entityManager.flush();
@@ -116,6 +117,7 @@ class ResumeRepositoryTest {
         resume1.setFileName("test-resume.pdf");
         resume1.setFileType("application/pdf");
         resume1.setFileData("test content".getBytes());
+        resume1.setResumeName("Backend Developer Resume");
 
         Resume savedResume1 = resumeRepository.save(resume1);
 
@@ -125,6 +127,7 @@ class ResumeRepositoryTest {
         resume2.setFileName("test-resume2.pdf");
         resume2.setFileType("application2/pdf");
         resume2.setFileData("test content".getBytes());
+        resume2.setResumeName("Backend Developer Resume");
 
         Resume savedResume2 = resumeRepository.save(resume2);
 
@@ -170,6 +173,7 @@ class ResumeRepositoryTest {
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
+        resume.setResumeName("Backend Developer Resume");
         Resume savedResume = resumeRepository.save(resume);
 
         entityManager.flush();

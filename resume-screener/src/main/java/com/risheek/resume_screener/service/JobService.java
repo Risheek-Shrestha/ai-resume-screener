@@ -117,6 +117,29 @@ public class JobService {
         );
     }
 
+    public JobPageResponse getOpenJobsForUser(int page, int size){
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UserNotFoundException(
+                                "User not found with email: " + email));
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<JobResponse> jobPage = jobRepository.findOpenJobsNotAppliedByUser(currentUser.getId(), pageable)
+                .map(this::toResponse);
+
+        return new JobPageResponse(
+                jobPage.getContent(),
+                jobPage.getNumber(),
+                jobPage.getSize(),
+                jobPage.getTotalElements(),
+                jobPage.getTotalPages(),
+                jobPage.isLast()
+        );
+
+    }
+
     private void saveSkills(Job job, List<String> skillNames) {
         if (skillNames == null || skillNames.isEmpty()) return;
         List<JobSkill> skills = skillNames.stream()

@@ -58,6 +58,7 @@ public class ResumeService {
         resume.setFileName(request.getFileName());
         resume.setFileType(request.getFileType());
         resume.setFileData(request.getFileData());
+        resume.setResumeName(request.getResumeName());
 
         parseAndSetText(resume, request.getFileData(), request.getFileType());
 
@@ -71,7 +72,8 @@ public class ResumeService {
                 savedResume.getId(),
                 savedResume.getJob().getId(),
                 savedResume.getFileName(),
-                savedResume.getFileType()
+                savedResume.getFileType(),
+                savedResume.getResumeName()
         );
     }
 
@@ -95,6 +97,7 @@ public class ResumeService {
         resume.setFileName(request.getFileName());
         resume.setFileType(request.getFileType());
         resume.setFileData(request.getFileData());
+        resume.setResumeName(request.getResumeName());
 
         parseAndSetText(resume, request.getFileData(), request.getFileType());
 
@@ -108,7 +111,8 @@ public class ResumeService {
                 savedResume.getId(),
                 savedResume.getJob().getId(),
                 savedResume.getFileName(),
-                savedResume.getFileType()
+                savedResume.getFileType(),
+                savedResume.getResumeName()
         );
     }
 
@@ -137,12 +141,13 @@ public class ResumeService {
                         new UsernameNotFoundException("Authenticated user not found"));
 
         List<Resume> resumes =
-                resumeRepository.findByUserId(currentUser.getId());
+                resumeRepository.findByUserIdOrderByUploadedAtDesc(currentUser.getId());
 
         return resumes.stream()
                 .map(resume -> new ResumeResponse(
                         resume.getId(),
                         resume.getJob().getId(),
+                        resume.getResumeName(),
                         resume.getFileName(),
                         resume.getFileType()
                 ))
@@ -165,12 +170,14 @@ public class ResumeService {
                 .orElseThrow(() ->
                         new ResumeNotFoundException("Resume not found"));
 
-        return new ResumeResponse(
-                resume.getId(),
-                resume.getJob().getId(),
-                resume.getFileName(),
-                resume.getFileType()
-        );
+        ResumeResponse response = new ResumeResponse();
+        response.setId(resume.getId());
+        response.setJobId(resume.getJob().getId());
+        response.setResumeName(resume.getResumeName());
+        response.setFileName(resume.getFileName());
+        response.setFileType(resume.getFileType());
+
+        return response;
     }
 
     private List<Integer> toIntList(byte[] bytes) {

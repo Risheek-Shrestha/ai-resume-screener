@@ -5,7 +5,6 @@ import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.service.JobService;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +34,14 @@ public class JobController {
             @RequestParam(defaultValue = "10") int size
     ) {
         return ResponseEntity.ok(jobService.getAllJobs(page, size));
+    }
+
+
+    @GetMapping("/open")
+    public ResponseEntity<JobPageResponse> getOpenJobsForUser(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(jobService.getOpenJobsForUser(page, size));
     }
 
     @PutMapping("/{id}")

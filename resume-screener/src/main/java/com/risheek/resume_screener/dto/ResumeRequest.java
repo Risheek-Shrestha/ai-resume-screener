@@ -8,6 +8,9 @@ import lombok.Data;
 @Data
 public class ResumeRequest {
 
+    @NotBlank(message = "Enter Resume name")
+    private String resumeName;
+
     @NotBlank(message = "File name required")
     private String fileName;
 

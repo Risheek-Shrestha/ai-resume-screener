@@ -81,6 +81,7 @@ class ScoreRepositoryTest {
         Resume resume = new Resume();
         resume.setUser(currentUser);
         resume.setJob(currentJob);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
@@ -152,6 +153,7 @@ class ScoreRepositoryTest {
         Resume resume = new Resume();
         resume.setUser(currentUser);
         resume.setJob(currentJob);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
@@ -223,6 +225,7 @@ class ScoreRepositoryTest {
         Resume resume = new Resume();
         resume.setUser(currentUser);
         resume.setJob(currentJob);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
@@ -302,6 +305,7 @@ class ScoreRepositoryTest {
         Resume resume = new Resume();
         resume.setUser(savedUserA);
         resume.setJob(currentJob);
+        resume.setResumeName("Backend Developer Resume");
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());

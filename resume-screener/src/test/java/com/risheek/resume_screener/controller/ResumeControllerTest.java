@@ -48,8 +48,8 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void getMyResumes_returnsListOf200() throws Exception {
-        ResumeResponse r1 = new ResumeResponse(1L, 10L, "resume1.pdf", "pdf");
-        ResumeResponse r2 = new ResumeResponse(2L, 11L, "resume2.pdf", "pdf");
+        ResumeResponse r1 = new ResumeResponse(1L, 10L,"Backend Developer Resume" ,"resume1.pdf", "pdf");
+        ResumeResponse r2 = new ResumeResponse(2L, 11L, "Backend Developer Resume","resume2.pdf", "pdf");
 
         when(resumeService.getMyResumes()).thenReturn(List.of(r1, r2));
 
@@ -67,6 +67,7 @@ class ResumeControllerTest {
                 new ResumeResponse(
                         1L,
                         10L,
+                        "Backend Developer Resume",
                         "resume.pdf",
                         "pdf"
                 );
@@ -100,13 +101,14 @@ class ResumeControllerTest {
     void uploadResume_validRequest_returns201() throws Exception {
 
         ResumeRequest request = new ResumeRequest();
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData("test".getBytes());
         request.setJobId(10L);
 
         ResumeResponse response =
-                new ResumeResponse(1L, 10L, "resume.pdf", "pdf");
+                new ResumeResponse(1L, 10L, "Backend Developer Resume","resume.pdf", "pdf");
 
         when(resumeService.uploadResume(any(ResumeRequest.class)))
                 .thenReturn(response);
@@ -145,13 +147,14 @@ class ResumeControllerTest {
     void updateResume_validRequest_returns200() throws Exception {
 
         ResumeRequest request = new ResumeRequest();
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("updated.pdf");
         request.setFileType("pdf");
         request.setFileData("data".getBytes());
         request.setJobId(10L);
 
         ResumeResponse response =
-                new ResumeResponse(1L, 10L, "updated.pdf", "pdf");
+                new ResumeResponse(1L, 10L, "Backend Developer Resume","updated.pdf", "pdf");
 
         when(resumeService.updateResume(eq(1L), any()))
                 .thenReturn(response);
@@ -170,6 +173,7 @@ class ResumeControllerTest {
     void updateResume_nonExistingId_returns404() throws Exception {
 
         ResumeRequest request = new ResumeRequest();
+        request.setResumeName("Backend Developer Resume");
         request.setFileName("resume.pdf");
         request.setFileType("pdf");
         request.setFileData("data".getBytes());
