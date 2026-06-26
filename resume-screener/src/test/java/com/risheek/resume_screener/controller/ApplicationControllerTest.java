@@ -6,6 +6,9 @@ import com.risheek.resume_screener.dto.ApplicationRequest;
 import com.risheek.resume_screener.dto.ApplicationResponse;
 import com.risheek.resume_screener.entity.ApplicationStatus;
 import com.risheek.resume_screener.exception.JobNotFoundException;
+import com.risheek.resume_screener.dto.UpdateApplicationStatusRequest;
+import com.risheek.resume_screener.exception.ApplicationNotFoundException;
+import com.risheek.resume_screener.exception.InvalidApplicationStatusException;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.ApplicationService;
 import com.risheek.resume_screener.service.CustomUserDetailService;
@@ -36,6 +39,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @WebMvcTest(ApplicationController.class)
 @Import(SecurityConfig.class)
@@ -166,5 +171,129 @@ class ApplicationControllerTest {
 
         mockMvc.perform(get("/api/v1/applications/jobs/999/accepted"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateApplicationStatus_returns200() throws Exception {
+
+        UpdateApplicationStatusRequest request =
+                new UpdateApplicationStatusRequest();
+        request.setStatus(ApplicationStatus.SHORTLISTED);
+
+        when(applicationService.updateApplicationStatus(
+                1L,
+                ApplicationStatus.SHORTLISTED))
+                .thenReturn(updatedResponse(ApplicationStatus.SHORTLISTED));
+
+        mockMvc.perform(
+                        patch("/api/v1/applications/1/status")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.applicationId").value(1))
+                .andExpect(jsonPath("$.status").value("SHORTLISTED"));
+
+        verify(applicationService)
+                .updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateApplicationStatus_missingStatus_returns400() throws Exception {
+
+        UpdateApplicationStatusRequest request =
+                new UpdateApplicationStatusRequest();
+
+        mockMvc.perform(
+                        patch("/api/v1/applications/1/status")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isBadRequest());
+
+        verify(applicationService, never())
+                .updateApplicationStatus(anyLong(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateApplicationStatus_applicationNotFound_returns404() throws Exception {
+
+        UpdateApplicationStatusRequest request =
+                new UpdateApplicationStatusRequest();
+        request.setStatus(ApplicationStatus.SHORTLISTED);
+
+        when(applicationService.updateApplicationStatus(
+                1L,
+                ApplicationStatus.SHORTLISTED))
+                .thenThrow(new ApplicationNotFoundException("Application not found"));
+
+        mockMvc.perform(
+                        patch("/api/v1/applications/1/status")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateApplicationStatus_invalidTransition_returns400() throws Exception {
+
+        UpdateApplicationStatusRequest request =
+                new UpdateApplicationStatusRequest();
+        request.setStatus(ApplicationStatus.HIRED);
+
+        when(applicationService.updateApplicationStatus(
+                1L,
+                ApplicationStatus.HIRED))
+                .thenThrow(new InvalidApplicationStatusException(
+                        "Application can only move from APPLIED to SHORTLISTED or REJECTED"));
+
+        mockMvc.perform(
+                        patch("/api/v1/applications/1/status")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void updateApplicationStatus_asUser_returns403() throws Exception {
+
+        UpdateApplicationStatusRequest request =
+                new UpdateApplicationStatusRequest();
+        request.setStatus(ApplicationStatus.SHORTLISTED);
+
+        mockMvc.perform(
+                        patch("/api/v1/applications/1/status")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request))
+                )
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(applicationService);
+    }
+
+    private ApplicationResponse updatedResponse(ApplicationStatus status) {
+        return new ApplicationResponse(
+                1L,
+                10L,
+                "Backend Developer",
+                100L,
+                BigDecimal.valueOf(92.5),
+                status,
+                LocalDateTime.now()
+        );
     }
 }

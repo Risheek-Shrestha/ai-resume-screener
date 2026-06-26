@@ -3,6 +3,9 @@ package com.risheek.resume_screener.service;
 import com.risheek.resume_screener.dto.ApplicationRequest;
 import com.risheek.resume_screener.dto.ApplicationResponse;
 import com.risheek.resume_screener.entity.*;
+import com.risheek.resume_screener.exception.ApplicationNotFoundException;
+import com.risheek.resume_screener.exception.InvalidApplicationStatusException;
+import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.repository.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -378,4 +381,360 @@ class ApplicationServiceTest {
         assertEquals(ApplicationStatus.REJECTED, result.getStatus());
     }
 
+    @Test
+    void testUpdateApplicationStatus_ApplicationNotFound() {
+
+        when(applicationRepository.findById(1L)).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(ApplicationNotFoundException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED));
+
+        assertEquals("Application not found", ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_UserNotFound() {
+
+        Application application = new Application();
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(
+                org.springframework.security.core.userdetails.UsernameNotFoundException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED));
+
+        assertEquals("Authenticated user not found", ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_Unauthorized() {
+
+        User owner = new User();
+        owner.setId(5L);
+
+        User current = new User();
+        current.setId(1L);
+
+        Job job = new Job();
+        job.setUser(owner);
+
+        Application application = new Application();
+        application.setJob(job);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(current));
+
+        Exception ex = assertThrows(
+                UnauthorizedAccessException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED));
+
+        assertEquals(
+                "You are not allowed to update this application",
+                ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_AppliedToShortlisted() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setTitle("Backend");
+        job.setUser(admin);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+
+        Score score = new Score();
+        score.setOverallScore(BigDecimal.valueOf(85));
+
+        Application application = new Application();
+        application.setId(1L);
+        application.setStatus(ApplicationStatus.APPLIED);
+        application.setJob(job);
+        application.setResume(resume);
+        application.setScore(score);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ApplicationResponse response =
+                applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED);
+
+        assertEquals(ApplicationStatus.SHORTLISTED, response.getStatus());
+
+        verify(applicationRepository).save(application);
+    }
+
+    @Test
+    void testUpdateApplicationStatus_AppliedToRejected() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setTitle("Backend");
+        job.setUser(admin);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+
+        Score score = new Score();
+        score.setOverallScore(BigDecimal.valueOf(85));
+
+        Application application = new Application();
+        application.setId(1L);
+        application.setStatus(ApplicationStatus.APPLIED);
+        application.setJob(job);
+        application.setResume(resume);
+        application.setScore(score);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ApplicationResponse response =
+                applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.REJECTED);
+
+        assertEquals(ApplicationStatus.REJECTED, response.getStatus());
+
+        verify(applicationRepository).save(application);
+    }
+
+    @Test
+    void testUpdateApplicationStatus_ShortlistedToHired() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setTitle("Backend");
+        job.setUser(admin);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+
+        Score score = new Score();
+        score.setOverallScore(BigDecimal.valueOf(85));
+
+        Application application = new Application();
+        application.setId(1L);
+        application.setStatus(ApplicationStatus.SHORTLISTED);
+        application.setJob(job);
+        application.setResume(resume);
+        application.setScore(score);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ApplicationResponse response =
+                applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.HIRED);
+
+        assertEquals(ApplicationStatus.HIRED, response.getStatus());
+
+        verify(applicationRepository).save(application);
+    }
+
+    @Test
+    void testUpdateApplicationStatus_ShortlistedToRejected() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setTitle("Backend");
+        job.setUser(admin);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+
+        Score score = new Score();
+        score.setOverallScore(BigDecimal.valueOf(85));
+
+        Application application = new Application();
+        application.setId(1L);
+        application.setStatus(ApplicationStatus.SHORTLISTED);
+        application.setJob(job);
+        application.setResume(resume);
+        application.setScore(score);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        ApplicationResponse response =
+                applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.REJECTED);
+
+        assertEquals(ApplicationStatus.REJECTED, response.getStatus());
+
+        verify(applicationRepository).save(application);
+    }
+
+    @Test
+    void testUpdateApplicationStatus_AppliedToHired_Invalid() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setUser(admin);
+
+        Application application = new Application();
+        application.setStatus(ApplicationStatus.APPLIED);
+        application.setJob(job);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        Exception ex = assertThrows(
+                InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.HIRED));
+
+        assertEquals(
+                "Application can only move from APPLIED to SHORTLISTED or REJECTED",
+                ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_ShortlistedToApply_Invalid() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setUser(admin);
+
+        Application application = new Application();
+        application.setStatus(ApplicationStatus.SHORTLISTED);
+        application.setJob(job);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        Exception ex = assertThrows(
+                InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.APPLIED));
+
+        assertEquals(
+                "Shortlisted application can only move to HIRED or REJECTED",
+                ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_HiredToRejected_Invalid() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setUser(admin);
+
+        Application application = new Application();
+        application.setStatus(ApplicationStatus.HIRED);
+        application.setJob(job);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        Exception ex = assertThrows(
+                InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.REJECTED));
+
+        assertEquals(
+                "Application is already in a terminal state",
+                ex.getMessage());
+    }
+
+    @Test
+    void testUpdateApplicationStatus_RejectedToShortlisted_Invalid() {
+
+        User admin = new User();
+        admin.setId(1L);
+
+        Job job = new Job();
+        job.setUser(admin);
+
+        Application application = new Application();
+        application.setStatus(ApplicationStatus.REJECTED);
+        application.setJob(job);
+
+        when(applicationRepository.findById(1L))
+                .thenReturn(Optional.of(application));
+
+        when(userRepository.findByEmail(anyString()))
+                .thenReturn(Optional.of(admin));
+
+        Exception ex = assertThrows(
+                InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(
+                        1L,
+                        ApplicationStatus.SHORTLISTED));
+
+        assertEquals(
+                "Application is already in a terminal state",
+                ex.getMessage());
+    }
 }
