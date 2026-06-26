@@ -1,11 +1,12 @@
 package com.risheek.resume_screener.repository;
 
-import com.risheek.resume_screener.entity.Job;
-import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.entity.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -144,5 +145,149 @@ class JobRepositoryTest {
         assertTrue(found);
 
     }
+    @Test
+    void shouldFindOpenJobsNotAppliedByUser() {
 
+        User user = new User();
+        user.setUsername("Risheek");
+        user.setEmail("risheek@gmail.com");
+        user.setPasswordHash("password");
+        user.setRole(User.Role.USER);
+
+        user = userRepository.save(user);
+
+        Job job = new Job();
+        job.setTitle("Backend Developer");
+        job.setDescription("Spring Boot");
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setUser(user);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(5));
+
+        jobRepository.save(job);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
+                user.getId(),
+                PageRequest.of(0, 10));
+
+        assertEquals(1, result.getTotalElements());
+        assertEquals("Backend Developer",
+                result.getContent().getFirst().getTitle());
+    }
+
+    @Test
+    void shouldNotReturnClosedJobs() {
+
+        User user = new User();
+        user.setUsername("Risheek");
+        user.setEmail("risheek@gmail.com");
+        user.setPasswordHash("password");
+        user.setRole(User.Role.USER);
+
+        user = userRepository.save(user);
+
+        Job job = new Job();
+        job.setTitle("Closed Job");
+        job.setDescription("Closed");
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setUser(user);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(10));
+        job.setApplicationDeadline(LocalDateTime.now().minusDays(1));
+
+        jobRepository.save(job);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
+                user.getId(),
+                PageRequest.of(0, 10));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldNotReturnJobsNotStartedYet() {
+
+        User user = new User();
+        user.setUsername("Risheek");
+        user.setEmail("risheek@gmail.com");
+        user.setPasswordHash("password");
+        user.setRole(User.Role.USER);
+
+        user = userRepository.save(user);
+
+        Job job = new Job();
+        job.setTitle("Future Job");
+        job.setDescription("Future");
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setUser(user);
+        job.setApplicationStartsAt(LocalDateTime.now().plusDays(2));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(10));
+
+        jobRepository.save(job);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
+                user.getId(),
+                PageRequest.of(0, 10));
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldExcludeAppliedJobs() {
+
+        User user = new User();
+        user.setUsername("Risheek");
+        user.setEmail("risheek@gmail.com");
+        user.setPasswordHash("password");
+        user.setRole(User.Role.USER);
+
+        user = userRepository.save(user);
+
+        Job job = new Job();
+        job.setTitle("Backend");
+        job.setDescription("Spring");
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setUser(user);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(5));
+
+        job = jobRepository.save(job);
+
+        Resume resume = new Resume();
+        resume.setUser(user);
+        resume.setJob(job);
+        resume.setResumeName("Resume");
+        resume.setFileName("resume.pdf");
+        resume.setFileType("application/pdf");
+        resume.setFileData("test".getBytes());
+        resume.setActive(true);
+
+        entityManager.persist(resume);
+
+        Application application = new Application();
+        application.setUser(user);
+        application.setJob(job);
+        application.setResume(resume);
+        application.setStatus(ApplicationStatus.APPLIED);
+
+        entityManager.persist(application);
+
+        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
+                user.getId(),
+                PageRequest.of(0, 10));
+
+        assertTrue(result.isEmpty());
+    }
 }

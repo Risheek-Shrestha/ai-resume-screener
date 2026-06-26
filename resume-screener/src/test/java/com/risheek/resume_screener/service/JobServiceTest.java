@@ -6,6 +6,7 @@ import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.JobRepository;
@@ -489,5 +490,167 @@ class JobServiceTest {
         assertThat(jobs.getTotalElements()).isZero();
         assertThat(jobs.getTotalPages()).isZero();
         verify(jobRepository).findAll(any(Pageable.class));
+    }
+
+    @Test
+    void createJob_InvalidApplicationWindow() {
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+
+        JobRequest request = new JobRequest();
+        request.setTitle("Backend Developer");
+        request.setDescription("...");
+        request.setJobType(Job.JobType.FULL_TIME);
+        request.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
+        request.setSkills(List.of("Java"));
+
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 7, 5, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 0, 0));
+
+        assertThrows(InvalidApplicationWindowException.class,
+                () -> jobService.createJob(request));
+
+        verify(jobRepository, never()).save(any());
+        verify(jobSkillRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void updateJob_InvalidApplicationWindow() {
+
+        Job job = new Job();
+        job.setId(10L);
+
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.of(job));
+
+        JobRequest request = new JobRequest();
+        request.setTitle("Backend Developer");
+        request.setDescription("...");
+        request.setJobType(Job.JobType.FULL_TIME);
+        request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
+        request.setSkills(List.of("Java"));
+
+        request.setApplicationStartsAt(LocalDateTime.of(2026, 7, 5, 0, 0));
+        request.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 0, 0));
+
+        assertThrows(InvalidApplicationWindowException.class,
+                () -> jobService.updateJob(10L, request));
+
+        verify(jobRepository, never()).save(any());
+    }
+
+    @Test
+    void createJob_NullSkills() {
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(jobRepository.save(any(Job.class)))
+                .thenAnswer(invocation -> {
+                    Job j = invocation.getArgument(0);
+                    j.setId(10L);
+                    return j;
+                });
+
+        when(jobSkillRepository.findByJobId(10L))
+                .thenReturn(List.of());
+
+        JobRequest request = new JobRequest();
+        request.setTitle("Backend Developer");
+        request.setDescription("...");
+        request.setJobType(Job.JobType.FULL_TIME);
+        request.setExperienceLevel(Job.ExperienceLevel.JUNIOR);
+        request.setSkills(null);
+        request.setApplicationStartsAt(LocalDateTime.now());
+        request.setApplicationDeadline(LocalDateTime.now().plusDays(5));
+
+        JobResponse response = jobService.createJob(request);
+
+        assertThat(response.getSkills()).isEmpty();
+
+        verify(jobSkillRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void updateJob_NullSkills() {
+
+        Job job = new Job();
+        job.setId(10L);
+
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.of(job));
+
+        when(jobRepository.save(any(Job.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(jobSkillRepository.findByJobId(10L))
+                .thenReturn(List.of());
+
+        JobRequest request = new JobRequest();
+        request.setTitle("Updated");
+        request.setDescription("Updated");
+        request.setJobType(Job.JobType.FULL_TIME);
+        request.setExperienceLevel(Job.ExperienceLevel.SENIOR);
+        request.setSkills(null);
+        request.setApplicationStartsAt(LocalDateTime.now());
+        request.setApplicationDeadline(LocalDateTime.now().plusDays(5));
+
+        JobResponse response = jobService.updateJob(10L, request);
+
+        assertThat(response.getSkills()).isEmpty();
+
+        verify(jobSkillRepository).deleteByJobId(10L);
+        verify(jobSkillRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void getOpenJobsForUser_HappyPath() {
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setTitle("Backend Developer");
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(5));
+
+        when(jobRepository.findOpenJobsNotAppliedByUser(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(job)));
+
+        when(jobSkillRepository.findByJobId(10L))
+                .thenReturn(List.of(new JobSkill(null, job, "Java")));
+
+        JobPageResponse response = jobService.getOpenJobsForUser(0, 10);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().getFirst().getTitle())
+                .isEqualTo("Backend Developer");
+    }
+
+    @Test
+    void getOpenJobsForUser_UserNotFound() {
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(UserNotFoundException.class,
+                () -> jobService.getOpenJobsForUser(0, 10));
+
+        verify(jobRepository, never())
+                .findOpenJobsNotAppliedByUser(anyLong(), any());
     }
 }

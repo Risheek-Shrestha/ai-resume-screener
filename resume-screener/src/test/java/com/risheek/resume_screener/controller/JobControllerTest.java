@@ -334,6 +334,83 @@ class JobControllerTest {
         verify(jobService).deleteJob(999L);
     }
 
+    @Test
+    @WithMockUser(roles = "USER")
+    void getOpenJobs_defaultPagination() throws Exception {
+
+        JobResponse job = new JobResponse(
+                1L,
+                "Backend Engineer",
+                "Spring Boot role",
+                Job.JobType.FULL_TIME,
+                Job.ExperienceLevel.MID,
+                List.of("Java", "Spring"),
+                LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 26, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0),
+                ApplicationWindowStatus.OPEN
+        );
+
+        JobPageResponse response = new JobPageResponse(
+                List.of(job),
+                0,
+                10,
+                1L,
+                1,
+                true
+        );
+
+        when(jobService.getOpenJobsForUser(0, 10))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/jobs/open"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("Backend Engineer"));
+
+        verify(jobService).getOpenJobsForUser(0, 10);
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void getOpenJobs_customPagination() throws Exception {
+
+        JobResponse job = new JobResponse(
+                2L,
+                "Java Developer",
+                "Spring Boot",
+                Job.JobType.FULL_TIME,
+                Job.ExperienceLevel.SENIOR,
+                List.of("Java"),
+                LocalDateTime.now(),
+                LocalDateTime.of(2026, 6, 26, 0, 0),
+                LocalDateTime.of(2026, 7, 1, 17, 0),
+                ApplicationWindowStatus.OPEN
+        );
+
+        JobPageResponse response = new JobPageResponse(
+                List.of(job),
+                2,
+                5,
+                1L,
+                1,
+                true
+        );
+
+        when(jobService.getOpenJobsForUser(2, 5))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/jobs/open")
+                        .param("page", "2")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(2))
+                .andExpect(jsonPath("$.content[0].title").value("Java Developer"));
+
+        verify(jobService).getOpenJobsForUser(2, 5);
+    }
+
     @TestConfiguration
     static class CacheTestConfig {
         @Bean
