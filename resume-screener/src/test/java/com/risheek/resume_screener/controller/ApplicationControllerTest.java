@@ -9,6 +9,13 @@ import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.ApplicationService;
 import com.risheek.resume_screener.service.CustomUserDetailService;
+import com.risheek.resume_screener.dto.ApplicationResultResponse;
+import com.risheek.resume_screener.dto.SuggestionResponse;
+import com.risheek.resume_screener.entity.Application;
+import com.risheek.resume_screener.entity.Job;
+import com.risheek.resume_screener.entity.Score;
+import com.risheek.resume_screener.service.SuggestionService;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,6 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityConfig.class)
 class ApplicationControllerTest {
 
+    @MockitoBean
+    private SuggestionService suggestionService;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -52,18 +62,53 @@ class ApplicationControllerTest {
     @Test
     @WithMockUser
     void applyForJob_validRequest_returns201() throws Exception {
+
         ApplicationRequest request = new ApplicationRequest();
         request.setResumeId(100L);
 
-        doNothing().when(applicationService).applyForJob(eq(1L), any(ApplicationRequest.class));
+        Job job = new Job();
+        job.setId(1L);
+
+        Score score = new Score();
+        score.setOverallScore(BigDecimal.valueOf(92.5));
+
+        Application application = new Application();
+        application.setId(5L);
+        application.setJob(job);
+        application.setStatus(ApplicationStatus.APPLIED);
+        application.setScore(score);
+
+        SuggestionResponse suggestionResponse = new SuggestionResponse(
+                100L,
+                BigDecimal.valueOf(92.5),
+                "EXCELLENT",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+
+        when(applicationService.applyForJob(eq(1L), any(ApplicationRequest.class)))
+                .thenReturn(application);
+
+        when(suggestionService.getImprovementSuggestions(100L))
+                .thenReturn(suggestionResponse);
 
         mockMvc.perform(post("/api/v1/applications/jobs/1")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.applicationId").value(5))
+                .andExpect(jsonPath("$.jobId").value(1))
+                .andExpect(jsonPath("$.status").value("APPLIED"))
+                .andExpect(jsonPath("$.score").value(92.5))
+                .andExpect(jsonPath("$.message")
+                        .value("Your profile matches this role — application submitted."));
 
         verify(applicationService).applyForJob(eq(1L), any(ApplicationRequest.class));
+        verify(suggestionService).getImprovementSuggestions(100L);
     }
 
     @Test

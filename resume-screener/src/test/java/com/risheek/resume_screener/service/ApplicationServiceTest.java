@@ -178,23 +178,59 @@ class ApplicationServiceTest {
 
     @Test
     void testApplyForJob_HappyPath() {
-        User user = new User(); user.setId(1L); user.setEmail("test@example.com");
-        Job job = new Job(); job.setId(10L);
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        Job job = new Job();
+        job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-        Resume resume = new Resume(); resume.setId(100L); resume.setUser(user); resume.setJob(job);
-        Score score = new Score(); score.setId(50L); score.setResume(resume);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+        resume.setJob(job);
+
+        Score score = new Score();
+        score.setId(50L);
+        score.setResume(resume);
         score.setOverallScore(BigDecimal.valueOf(71));
-        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
 
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
-        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
+        ApplicationRequest request = new ApplicationRequest();
+        request.setResumeId(100L);
 
-        applicationService.applyForJob(10L, request);
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L))
+                .thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(1L, 10L))
+                .thenReturn(false);
+        when(scoreRepository.findByResumeId(100L))
+                .thenReturn(Optional.of(score));
 
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        Application result = applicationService.applyForJob(10L, request);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(user, result.getUser());
+        assertEquals(job, result.getJob());
+        assertEquals(resume, result.getResume());
+        assertEquals(score, result.getScore());
+        assertEquals(ApplicationStatus.APPLIED, result.getStatus());
+
+        verify(userRepository).findByEmail("test@example.com");
+        verify(jobRepository).findById(10L);
+        verify(resumeRepository).findByIdAndUserId(100L, 1L);
+        verify(scoreRepository).findByResumeId(100L);
+        verify(applicationRepository).existsByUserIdAndJobId(1L, 10L);
         verify(applicationRepository).save(any(Application.class));
     }
 
@@ -304,4 +340,42 @@ class ApplicationServiceTest {
         verify(applicationRepository)
                 .findByJobIdAndStatusOrderByScoreOverallScoreDesc(10L, ApplicationStatus.APPLIED);
     }
+
+    @Test
+    void testApplyForJob_ScoreBelowThreshold_RejectsApplication() {
+
+        User user = new User();
+        user.setId(1L);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+        resume.setJob(job);
+
+        Score score = new Score();
+        score.setResume(resume);
+        score.setOverallScore(BigDecimal.valueOf(45));
+
+        ApplicationRequest request = new ApplicationRequest();
+        request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
+
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Application result = applicationService.applyForJob(10L, request);
+
+        assertEquals(ApplicationStatus.REJECTED, result.getStatus());
+    }
+
 }

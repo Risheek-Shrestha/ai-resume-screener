@@ -30,7 +30,7 @@ public class ApplicationService {
         this.userRepository = userRepository;
     }
 
-    public void applyForJob(Long jobId, ApplicationRequest request) {
+    public Application applyForJob(Long jobId, ApplicationRequest request) {
 
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
@@ -70,8 +70,7 @@ public class ApplicationService {
                         ? ApplicationStatus.APPLIED
                         : ApplicationStatus.REJECTED
         );
-        applicationRepository.save(application);
-
+        return applicationRepository.save(application);
     }
 
     public List<ApplicationResponse> getMyApplications() {
