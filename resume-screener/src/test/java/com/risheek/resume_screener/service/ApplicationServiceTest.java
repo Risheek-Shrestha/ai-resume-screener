@@ -22,28 +22,23 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationServiceTest {
 
-    @Mock
-    private ResumeRepository resumeRepository;
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private JobRepository jobRepository;
-    @Mock
-    private ApplicationRepository applicationRepository;
-    @Mock
-    private ScoreRepository scoreRepository;
+    @Mock private ResumeRepository resumeRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private JobRepository jobRepository;
+    @Mock private ApplicationRepository applicationRepository;
+    @Mock private ScoreRepository scoreRepository;
 
     private ApplicationService applicationService;
 
     @BeforeEach
     void setUp() {
-
-        applicationService = new ApplicationService(applicationRepository, resumeRepository, jobRepository, scoreRepository, userRepository);
+        applicationService = new ApplicationService(
+                applicationRepository, resumeRepository, jobRepository,
+                scoreRepository, userRepository);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication())
@@ -52,74 +47,151 @@ class ApplicationServiceTest {
     }
 
     @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
+    void tearDown() { SecurityContextHolder.clearContext(); }
 
     @Test
     void testApplyForJob_UserNotFound() {
-        when(userRepository.findByEmail(anyString())).thenReturn(java.util.Optional.empty());
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            applicationService.applyForJob(1L, null);
-        });
-
-        assertEquals("Authenticated user not found", exception.getMessage());
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(1L, null));
+        assertEquals("Authenticated user not found", ex.getMessage());
     }
 
     @Test
     void testApplyForJob_JobNotFound() {
-        User user = new User();
-        user.setId(1L);
-        when(userRepository.findByEmail(anyString())).thenReturn(java.util.Optional.of(user));
-        when(jobRepository.findById(anyLong())).thenReturn(java.util.Optional.empty());
+        User user = new User(); user.setId(1L);
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            applicationService.applyForJob(1L, null);
-        });
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(1L, null));
+        assertEquals("Job not found", ex.getMessage());
+    }
 
-        assertEquals("Job not found", exception.getMessage());
+    @Test
+    void testApplyForJob_ResumeNotFound() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("Resume not found or does not belong to user", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_ResumeForDifferentJob() {
+        User user = new User(); user.setId(1L);
+        Job appliedJob = new Job(); appliedJob.setId(10L);
+        Job resumeJob = new Job(); resumeJob.setId(20L);
+        Resume resume = new Resume(); resume.setId(100L); resume.setJob(resumeJob);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(appliedJob));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("Resume does not belong to the specified job", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_NotStarted() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().plusDays(2));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(10));
+        Resume resume = new Resume(); resume.setJob(job);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("Applications are not open for this job", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_Closed() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(10));
+        job.setApplicationDeadline(LocalDateTime.now().minusDays(1));
+        Resume resume = new Resume(); resume.setJob(job);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("Applications are closed for this job", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_DuplicateApplication() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        Resume resume = new Resume(); resume.setJob(job);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong())).thenReturn(true);
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("User has already applied for this job", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_ScoreNotFound() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        Resume resume = new Resume(); resume.setId(100L); resume.setJob(job);
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong())).thenReturn(false);
+        when(scoreRepository.findByResumeId(anyLong())).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("Score not found for the resume", ex.getMessage());
     }
 
     @Test
     void testApplyForJob_HappyPath() {
-
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
-
-        Job job = new Job();
-        job.setId(10L);
+        User user = new User(); user.setId(1L); user.setEmail("test@example.com");
+        Job job = new Job(); job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setJob(job);
-
-        Score score = new Score();
-        score.setId(50L);
-        score.setResume(resume);
+        Resume resume = new Resume(); resume.setId(100L); resume.setUser(user); resume.setJob(job);
+        Score score = new Score(); score.setId(50L); score.setResume(resume);
         score.setOverallScore(BigDecimal.valueOf(71));
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
 
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(10L))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(100L, 1L))
-                .thenReturn(Optional.of(resume));
-
-        when(applicationRepository.existsByUserIdAndJobId(1L,10L))
-                .thenReturn(false);
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
 
         applicationService.applyForJob(10L, request);
 
@@ -127,289 +199,21 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void testApplyForJob_ResumeNotFound() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("Resume not found or does not belong to user",
-                exception.getMessage());
-    }
-
-    @Test
-    void testApplyForJob_ResumeForDifferentJob() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job appliedJob = new Job();
-        appliedJob.setId(10L);
-
-        Job resumeJob = new Job();
-        resumeJob.setId(20L);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setJob(resumeJob);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(appliedJob));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.of(resume));
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("Resume does not belong to the specified job",
-                exception.getMessage());
-    }
-
-    @Test
-    void testApplyForJob_NotStarted() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setApplicationStartsAt(LocalDateTime.now().plusDays(2));
-        job.setApplicationDeadline(LocalDateTime.now().plusDays(10));
-
-        Resume resume = new Resume();
-        resume.setJob(job);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.of(resume));
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("Applications are not open for this job",
-                exception.getMessage());
-    }
-
-    @Test
-    void testApplyForJob_Closed() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setApplicationStartsAt(LocalDateTime.now().minusDays(10));
-        job.setApplicationDeadline(LocalDateTime.now().minusDays(1));
-
-        Resume resume = new Resume();
-        resume.setJob(job);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.of(resume));
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("Applications are closed for this job",
-                exception.getMessage());
-    }
-
-    @Test
-    void testApplyForJob_DuplicateApplication() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
-        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-
-        Resume resume = new Resume();
-        resume.setJob(job);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.of(resume));
-
-        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong()))
-                .thenReturn(true);
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("User has already applied for this job",
-                exception.getMessage());
-    }
-
-    @Test
-    void testApplyForJob_ScoreNotFound() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
-        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setJob(job);
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong()))
-                .thenReturn(Optional.of(resume));
-
-        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong()))
-                .thenReturn(false);
-
-        when(scoreRepository.findByResumeId(anyLong()))
-                .thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-
-        assertEquals("Score not found for the resume",
-                exception.getMessage());
-    }
-
-    @Test
     void testGetMyApplications_UserNotFound() {
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class,
+        Exception ex = assertThrows(RuntimeException.class,
                 () -> applicationService.getMyApplications());
-
-        assertEquals("Authenticated user not found",
-                exception.getMessage());
+        assertEquals("Authenticated user not found", ex.getMessage());
     }
 
     @Test
     void testGetMyApplications_Success() {
+        User user = new User(); user.setId(1L);
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(applicationRepository.findByUserId(1L)).thenReturn(List.of());
 
-        User user = new User();
-        user.setId(1L);
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(user));
-
-        when(applicationRepository.findByUserId(1L))
-                .thenReturn(List.of());
-
-        List<ApplicationResponse> responses =
-                applicationService.getMyApplications();
-
-        assertNotNull(responses);
-        assertTrue(responses.isEmpty());
-    }
-
-    @Test
-    void testGetApplicationsForJob_Unauthorized() {
-
-        User owner = new User();
-        owner.setId(5L);
-
-        User current = new User();
-        current.setId(1L);
-
-        Job job = new Job();
-        job.setUser(owner);
-
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.of(job));
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(current));
-
-        Exception exception = assertThrows(RuntimeException.class,
-                () -> applicationService.getApplicationsForJob(1L));
-
-        assertEquals(
-                "You are not allowed to view applications for this job",
-                exception.getMessage());
-    }
-
-    @Test
-    void testGetApplicationsForJob_Success() {
-
-        User employer = new User();
-        employer.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setUser(employer);
-
-        when(jobRepository.findById(10L))
-                .thenReturn(Optional.of(job));
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(employer));
-
-        when(applicationRepository.findByJobId(10L))
-                .thenReturn(List.of());
-
-        List<ApplicationResponse> responses =
-                applicationService.getApplicationsForJob(10L);
+        List<ApplicationResponse> responses = applicationService.getMyApplications();
 
         assertNotNull(responses);
         assertTrue(responses.isEmpty());
@@ -417,18 +221,87 @@ class ApplicationServiceTest {
 
     @Test
     void testGetApplicationsForJob_JobNotFound() {
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        when(jobRepository.findById(anyLong()))
-                .thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class,
+        Exception ex = assertThrows(RuntimeException.class,
                 () -> applicationService.getApplicationsForJob(1L));
-
-        assertEquals("Job not found", exception.getMessage());
+        assertEquals("Job not found", ex.getMessage());
 
         verify(userRepository, never()).findByEmail(anyString());
-        verify(applicationRepository, never())
-                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(anyLong(), any(ApplicationStatus.class));
+        // FIX: verify the correct repo method — findByJobId, not the ordered one
+        verify(applicationRepository, never()).findByJobId(anyLong());
     }
 
+    @Test
+    void testGetApplicationsForJob_Unauthorized() {
+        User owner = new User(); owner.setId(5L);
+        User current = new User(); current.setId(1L);
+        Job job = new Job(); job.setUser(owner);
+
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(current));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.getApplicationsForJob(1L));
+        assertEquals("You are not allowed to view applications for this job", ex.getMessage());
+    }
+
+    @Test
+    void testGetApplicationsForJob_Success() {
+        User employer = new User(); employer.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setUser(employer);
+
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(employer));
+        when(applicationRepository.findByJobId(10L)).thenReturn(List.of());
+
+        List<ApplicationResponse> responses = applicationService.getApplicationsForJob(10L);
+
+        assertNotNull(responses);
+        assertTrue(responses.isEmpty());
+    }
+
+    // ── getAcceptedApplicationsForJob (MISSING in original) ─────────────────────
+
+    @Test
+    void testGetAcceptedApplicationsForJob_JobNotFound() {
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.getAcceptedApplicationsForJob(1L));
+        assertEquals("Job not found", ex.getMessage());
+    }
+
+    @Test
+    void testGetAcceptedApplicationsForJob_Unauthorized() {
+        User owner = new User(); owner.setId(5L);
+        User current = new User(); current.setId(1L);
+        Job job = new Job(); job.setUser(owner);
+
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(current));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.getAcceptedApplicationsForJob(1L));
+        assertEquals("You are not allowed to view applications for this job", ex.getMessage());
+    }
+
+    @Test
+    void testGetAcceptedApplicationsForJob_Success_returnsSortedByScoreDesc() {
+        User employer = new User(); employer.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setUser(employer);
+
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(employer));
+        when(applicationRepository.findByJobIdAndStatusOrderByScoreOverallScoreDesc(
+                10L, ApplicationStatus.APPLIED)).thenReturn(List.of());
+
+        List<ApplicationResponse> responses =
+                applicationService.getAcceptedApplicationsForJob(10L);
+
+        assertNotNull(responses);
+        assertTrue(responses.isEmpty());
+        verify(applicationRepository)
+                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(10L, ApplicationStatus.APPLIED);
+    }
 }
