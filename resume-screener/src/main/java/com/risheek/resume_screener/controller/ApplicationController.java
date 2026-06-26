@@ -32,7 +32,18 @@ public class ApplicationController {
     }
 
     @GetMapping("/jobs/{jobId}")
-    public ResponseEntity<List<ApplicationResponse>> getApplicationsForJob(@PathVariable Long jobId) {
-        return ResponseEntity.ok(applicationService.getApplicationsForJob(jobId));
+    public ResponseEntity<List<ApplicationResponse>> getApplicationsForJob(
+            @PathVariable Long jobId) {
+
+        return ResponseEntity.ok(
+                applicationService.getApplicationsForJob(jobId));
+    }
+
+    @GetMapping("/jobs/{jobId}/accepted")
+    public ResponseEntity<List<ApplicationResponse>> getAcceptedApplicationsForJob(
+            @PathVariable Long jobId) {
+
+        return ResponseEntity.ok(
+                applicationService.getAcceptedApplicationsForJob(jobId));
     }
 }

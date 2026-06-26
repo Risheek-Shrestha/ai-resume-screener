@@ -151,8 +151,8 @@ class ApplicationRepositoryTest {
                 ApplicationStatus.APPLIED);
 
         List<Application> result =
-                applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(
-                        low.getJob().getId(), low.getScore().getOverallScore());
+                applicationRepository.findByJobIdAndStatusOrderByScoreOverallScoreDesc(
+                        low.getJob().getId(), ApplicationStatus.APPLIED);
 
         assertEquals(2, result.size());
         assertEquals(BigDecimal.valueOf(95),

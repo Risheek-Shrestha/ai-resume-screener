@@ -35,21 +35,26 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST,"/api/v1/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/open").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/jobs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/jobs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/jobs/**").hasRole("ADMIN")
+
                         .requestMatchers(HttpMethod.GET, "/api/v1/resumes/**").hasRole("USER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/resumes/**").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/resumes/**").hasRole("USER")
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/resumes/**").hasRole("USER")
+
                         .requestMatchers(HttpMethod.GET, "/api/v1/scores/**").hasRole("USER")
+
                         .requestMatchers(HttpMethod.POST, "/api/v1/applications/**").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/v1/applications/me").hasRole("USER")
                         .requestMatchers(HttpMethod.GET, "/api/v1/applications/jobs/**").hasRole("ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

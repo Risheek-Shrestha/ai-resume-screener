@@ -405,7 +405,7 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail(anyString()))
                 .thenReturn(Optional.of(employer));
 
-        when(applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(10L, BigDecimal.valueOf(50)))
+        when(applicationRepository.findByJobId(10L))
                 .thenReturn(List.of());
 
         List<ApplicationResponse> responses =
@@ -428,7 +428,7 @@ class ApplicationServiceTest {
 
         verify(userRepository, never()).findByEmail(anyString());
         verify(applicationRepository, never())
-                .findByJobIdOrderByScoreOverallScoreDesc(anyLong(), any(BigDecimal.class));
+                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(anyLong(), any(ApplicationStatus.class));
     }
 
 }

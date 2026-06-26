@@ -95,10 +95,35 @@ public class ApplicationService {
                 .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
 
         if (!job.getUser().getId().equals(currentUser.getId())) {
-            throw new UnauthorizedAccessException("You are not allowed to view applications for this job");
+            throw new UnauthorizedAccessException(
+                    "You are not allowed to view applications for this job");
         }
 
-        return applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(jobId, BigDecimal.valueOf(50))
+        return applicationRepository.findByJobId(jobId)
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    public List<ApplicationResponse> getAcceptedApplicationsForJob(Long jobId) {
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException("Job not found"));
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
+
+        if (!job.getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedAccessException(
+                    "You are not allowed to view applications for this job");
+        }
+
+        return applicationRepository
+                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(
+                        jobId,
+                        ApplicationStatus.APPLIED
+                )
                 .stream()
                 .map(this::mapToResponse)
                 .toList();

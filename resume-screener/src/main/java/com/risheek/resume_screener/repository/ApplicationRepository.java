@@ -8,8 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
-public interface ApplicationRepository
-        extends JpaRepository<Application, Long> {
+public interface ApplicationRepository extends JpaRepository<Application, Long> {
 
     boolean existsByUserIdAndJobId(Long userId, Long jobId);
 
@@ -17,7 +16,10 @@ public interface ApplicationRepository
 
     List<Application> findByJobId(Long jobId);
 
-    List<Application> findByJobIdOrderByScoreOverallScoreDesc(Long jobId, BigDecimal score);
+    List<Application> findByJobIdAndStatusOrderByScoreOverallScoreDesc(
+            Long jobId,
+            ApplicationStatus status
+    );
 
     List<Application> findByStatus(ApplicationStatus status);
 
