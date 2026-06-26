@@ -4,6 +4,7 @@ import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.ApplicationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,7 +17,7 @@ public interface ApplicationRepository
 
     List<Application> findByJobId(Long jobId);
 
-    List<Application> findByJobIdOrderByScoreOverallScoreDesc(Long jobId);
+    List<Application> findByJobIdOrderByScoreOverallScoreDesc(Long jobId, BigDecimal score);
 
     List<Application> findByStatus(ApplicationStatus status);
 

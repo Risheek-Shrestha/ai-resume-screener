@@ -9,6 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -21,7 +22,7 @@ public class ApplicationService {
     private final UserRepository userRepository;
 
     public ApplicationService(ApplicationRepository applicationRepository, ResumeRepository resumeRepository,
-                              JobRepository jobRepository, ScoreRepository scoreRepository,UserRepository userRepository){
+                              JobRepository jobRepository, ScoreRepository scoreRepository, UserRepository userRepository) {
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
         this.jobRepository = jobRepository;
@@ -41,20 +42,19 @@ public class ApplicationService {
         Resume resume = resumeRepository.findByIdAndUserId(request.getResumeId(), currentUser.getId())
                 .orElseThrow(() -> new UnauthorizedAccessException("Resume not found or does not belong to user"));
 
-        if(!resume.getJob().getId().equals( currentJob.getId())){
+        if (!resume.getJob().getId().equals(currentJob.getId())) {
             throw new UnauthorizedAccessException("Resume does not belong to the specified job");
         }
 
-        if(currentJob.getApplicationStartsAt() != null && currentJob.getApplicationDeadline() != null){
-            if(currentJob.getApplicationStartsAt().isAfter(java.time.LocalDateTime.now())){
+        if (currentJob.getApplicationStartsAt() != null && currentJob.getApplicationDeadline() != null) {
+            if (currentJob.getApplicationStartsAt().isAfter(java.time.LocalDateTime.now())) {
                 throw new ApplicationNotStartedException("Applications are not open for this job");
-            }
-            else if(currentJob.getApplicationDeadline().isBefore(java.time.LocalDateTime.now())){
+            } else if (currentJob.getApplicationDeadline().isBefore(java.time.LocalDateTime.now())) {
                 throw new ApplicationClosedException("Applications are closed for this job");
             }
         }
 
-        if(applicationRepository.existsByUserIdAndJobId(currentUser.getId(), currentJob.getId())){
+        if (applicationRepository.existsByUserIdAndJobId(currentUser.getId(), currentJob.getId())) {
             throw new DuplicateApplicationException("User has already applied for this job");
         }
 
@@ -65,8 +65,11 @@ public class ApplicationService {
         application.setUser(currentUser);
         application.setJob(currentJob);
         application.setResume(resume);
-        application.setScore(score);
-        application.setStatus(ApplicationStatus.APPLIED);
+        application.setScore(score);application.setStatus(
+                score.getOverallScore().compareTo(BigDecimal.valueOf(50)) > 0
+                        ? ApplicationStatus.APPLIED
+                        : ApplicationStatus.REJECTED
+        );
         applicationRepository.save(application);
 
     }
@@ -95,7 +98,7 @@ public class ApplicationService {
             throw new UnauthorizedAccessException("You are not allowed to view applications for this job");
         }
 
-        return applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(jobId)
+        return applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(jobId, BigDecimal.valueOf(50))
                 .stream()
                 .map(this::mapToResponse)
                 .toList();

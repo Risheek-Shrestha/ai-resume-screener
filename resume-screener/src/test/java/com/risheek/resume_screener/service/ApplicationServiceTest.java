@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -100,6 +101,7 @@ class ApplicationServiceTest {
         Score score = new Score();
         score.setId(50L);
         score.setResume(resume);
+        score.setOverallScore(BigDecimal.valueOf(71));
 
         ApplicationRequest request = new ApplicationRequest();
         request.setResumeId(100L);
@@ -403,7 +405,7 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail(anyString()))
                 .thenReturn(Optional.of(employer));
 
-        when(applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(10L))
+        when(applicationRepository.findByJobIdOrderByScoreOverallScoreDesc(10L, BigDecimal.valueOf(50)))
                 .thenReturn(List.of());
 
         List<ApplicationResponse> responses =
@@ -426,7 +428,7 @@ class ApplicationServiceTest {
 
         verify(userRepository, never()).findByEmail(anyString());
         verify(applicationRepository, never())
-                .findByJobIdOrderByScoreOverallScoreDesc(anyLong());
+                .findByJobIdOrderByScoreOverallScoreDesc(anyLong(), any(BigDecimal.class));
     }
 
 }
