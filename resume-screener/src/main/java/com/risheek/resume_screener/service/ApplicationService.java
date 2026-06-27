@@ -1,10 +1,12 @@
 package com.risheek.resume_screener.service;
 
+import com.risheek.resume_screener.dto.ApplicationNotificationEvent;
 import com.risheek.resume_screener.dto.ApplicationRequest;
 import com.risheek.resume_screener.dto.ApplicationResponse;
 import com.risheek.resume_screener.entity.*;
 import com.risheek.resume_screener.exception.*;
 import com.risheek.resume_screener.repository.*;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -20,14 +22,17 @@ public class ApplicationService {
     private final JobRepository jobRepository;
     private final ScoreRepository scoreRepository;
     private final UserRepository userRepository;
+    private final RabbitTemplate rabbitTemplate;
 
     public ApplicationService(ApplicationRepository applicationRepository, ResumeRepository resumeRepository,
-                              JobRepository jobRepository, ScoreRepository scoreRepository, UserRepository userRepository) {
+                              JobRepository jobRepository, ScoreRepository scoreRepository, UserRepository userRepository,
+                              RabbitTemplate rabbitTemplate) {
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
         this.jobRepository = jobRepository;
         this.scoreRepository = scoreRepository;
         this.userRepository = userRepository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public Application applyForJob(Long jobId, ApplicationRequest request) {
@@ -70,7 +75,16 @@ public class ApplicationService {
                         ? ApplicationStatus.APPLIED
                         : ApplicationStatus.REJECTED
         );
-        return applicationRepository.save(application);
+        Application newApplication = applicationRepository.save(application);
+
+        ApplicationNotificationEvent event = new ApplicationNotificationEvent(
+                currentUser.getEmail(),
+                currentJob.getTitle(),
+                newApplication.getStatus()
+        );
+        rabbitTemplate.convertAndSend("applicationNotificationsExchange", "application.notifications", event);
+
+        return newApplication;
     }
 
     public List<ApplicationResponse> getMyApplications() {
@@ -144,6 +158,8 @@ public class ApplicationService {
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Authenticated user not found"));
 
+        Job currentJob = application.getJob();
+
         if (!application.getJob().getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException(
                     "You are not allowed to update this application");
@@ -153,7 +169,16 @@ public class ApplicationService {
 
         application.setStatus(newStatus);
 
-        return mapToResponse(applicationRepository.save(application));
+        ApplicationResponse newApplication = mapToResponse(applicationRepository.save(application));
+
+        ApplicationNotificationEvent event = new ApplicationNotificationEvent(
+                application.getUser().getEmail(),
+                currentJob.getTitle(),
+                newApplication.getStatus()
+        );
+        rabbitTemplate.convertAndSend("applicationNotificationsExchange", "application.notifications", event);
+
+        return newApplication;
     }
 
     private ApplicationResponse mapToResponse(Application application) {

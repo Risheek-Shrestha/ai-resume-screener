@@ -36,13 +36,16 @@ Three services, wired together over a Docker network:
 ## Features
 
 - JWT auth with access + refresh tokens (register, login, refresh, revoke)
-- Job CRUD with per-job skill lists
+- Job CRUD with per-job skill lists and an optional application window (`applicationStartsAt` / `applicationDeadline`)
 - Resume upload (PDF/DOCX) with automatic text extraction
 - AI match score: weighted blend of keyword coverage, TF-IDF content similarity, and semantic similarity
 - Skill synonym normalization (e.g. `js` ↔ `javascript`, `k8s` ↔ `kubernetes`)
 - Improvement suggestions: weak-area detection, actionable steps, free learning resources, resume-writing tips
 - Job recommendations: ranks open jobs against a candidate's resume
+- ATS-style application screening: applying auto-evaluates the candidate's score against the job, auto-accepting (`APPLIED`) or auto-rejecting (`REJECTED`) on the spot, and returns improvement suggestions alongside the result
+- Employer application management: view all applicants for a job, view accepted applicants ranked by score, and move applications through a `SHORTLISTED → HIRED` / `REJECTED` status workflow with transition validation
 - Downloadable PDF score report
+- Redis caching on job listing/detail endpoints, invalidated on job create/update/delete
 - Graceful degradation: if the ML service is unreachable, the API falls back to keyword-only matching instead of failing the request
 
 ## API reference
@@ -69,10 +72,17 @@ All endpoints are prefixed `/api/v1`. Full interactive docs are at `/swagger-ui/
 | GET | `/scores/my-scores` | List all your scores |
 | GET | `/suggestions/improve/{resumeId}` | Get improvement suggestions for a resume |
 | GET | `/suggestions/jobs/{resumeId}` | Get recommended jobs for a resume |
+| POST | `/applications/jobs/{jobId}` | Apply to a job with a resume — auto-scored and auto-accepted/rejected |
+| GET | `/applications/me` | List your own applications |
+| GET | `/applications/jobs/{jobId}` | List all applicants for a job *(job owner only)* |
+| GET | `/applications/jobs/{jobId}/accepted` | List accepted applicants for a job, ranked by score *(job owner only)* |
+| PATCH | `/applications/{applicationId}/status` | Move an application to `SHORTLISTED`, `HIRED`, or `REJECTED` *(job owner only)* |
 | GET | `/reports/resume/{resumeId}` | Get a structured report (score + suggestions) |
 | GET | `/reports/resume/{resumeId}/pdf` | Download the report as a PDF |
 
 The FastAPI ML service (`/extract-text`, `/analyze`, `/suggest`, `/match-jobs`) is internal — the Spring Boot API is the only intended caller, so it isn't exposed to end users in production setups.
+
+**Application status workflow:** `APPLIED → SHORTLISTED → HIRED`, with `REJECTED` reachable from either `APPLIED` or `SHORTLISTED`. `HIRED` and `REJECTED` are terminal — any further transition attempt is rejected.
 
 ## Running with Docker
 
@@ -131,7 +141,7 @@ ai-resume-screener/
 ├── resume-screener/        # Spring Boot API
 │   ├── Dockerfile
 │   └── src/main/java/com/risheek/resume_screener/
-│       ├── controller/     # Auth, Job, Resume, Score, Suggestion, Report
+│       ├── controller/     # Auth, Job, Resume, Score, Suggestion, Application, Report
 │       ├── service/        # business logic + ML service HTTP calls
 │       ├── entity/         # JPA entities
 │       ├── repository/     # Spring Data repositories

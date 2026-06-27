@@ -1,4 +1,10 @@
 services:
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: resume-screener-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
   postgres:
     image: postgres:15-alpine
     container_name: resume-screener-db

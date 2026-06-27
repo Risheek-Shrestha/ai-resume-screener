@@ -37,10 +37,9 @@ public class Resume {
     @Column(nullable = false)
     private String fileType;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "bytea")
     private byte[] fileData;
-
+    
     @Column(columnDefinition = "TEXT")
     private String parsedText;
 
