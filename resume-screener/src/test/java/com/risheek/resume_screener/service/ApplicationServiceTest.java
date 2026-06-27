@@ -34,6 +34,7 @@ class ApplicationServiceTest {
     @Mock private JobRepository jobRepository;
     @Mock private ApplicationRepository applicationRepository;
     @Mock private ScoreRepository scoreRepository;
+    @Mock private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
 
     private ApplicationService applicationService;
 
@@ -41,7 +42,7 @@ class ApplicationServiceTest {
     void setUp() {
         applicationService = new ApplicationService(
                 applicationRepository, resumeRepository, jobRepository,
-                scoreRepository, userRepository);
+                scoreRepository, userRepository, rabbitTemplate);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication())
@@ -463,12 +464,17 @@ class ApplicationServiceTest {
         Score score = new Score();
         score.setOverallScore(BigDecimal.valueOf(85));
 
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setEmail("applicant@example.com");
+
         Application application = new Application();
         application.setId(1L);
         application.setStatus(ApplicationStatus.APPLIED);
         application.setJob(job);
         application.setResume(resume);
         application.setScore(score);
+        application.setUser(applicant);
 
         when(applicationRepository.findById(1L))
                 .thenReturn(Optional.of(application));
@@ -506,12 +512,17 @@ class ApplicationServiceTest {
         Score score = new Score();
         score.setOverallScore(BigDecimal.valueOf(85));
 
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setEmail("applicant@example.com");
+
         Application application = new Application();
         application.setId(1L);
         application.setStatus(ApplicationStatus.APPLIED);
         application.setJob(job);
         application.setResume(resume);
         application.setScore(score);
+        application.setUser(applicant);
 
         when(applicationRepository.findById(1L))
                 .thenReturn(Optional.of(application));
@@ -549,12 +560,17 @@ class ApplicationServiceTest {
         Score score = new Score();
         score.setOverallScore(BigDecimal.valueOf(85));
 
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setEmail("applicant@example.com");
+
         Application application = new Application();
         application.setId(1L);
         application.setStatus(ApplicationStatus.SHORTLISTED);
         application.setJob(job);
         application.setResume(resume);
         application.setScore(score);
+        application.setUser(applicant);
 
         when(applicationRepository.findById(1L))
                 .thenReturn(Optional.of(application));
@@ -592,12 +608,17 @@ class ApplicationServiceTest {
         Score score = new Score();
         score.setOverallScore(BigDecimal.valueOf(85));
 
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setEmail("applicant@example.com");
+
         Application application = new Application();
         application.setId(1L);
         application.setStatus(ApplicationStatus.SHORTLISTED);
         application.setJob(job);
         application.setResume(resume);
         application.setScore(score);
+        application.setUser(applicant);
 
         when(applicationRepository.findById(1L))
                 .thenReturn(Optional.of(application));

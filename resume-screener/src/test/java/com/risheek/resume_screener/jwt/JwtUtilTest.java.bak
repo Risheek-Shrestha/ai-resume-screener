@@ -1,5 +1,4 @@
-package com.risheek.resume_screener.jwt;
-
+import com.risheek.resume_screener.jwt.JwtUtil;
 import io.jsonwebtoken.ExpiredJwtException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,15 +56,21 @@ class JwtUtilTest {
 
     @Test
     void isTokenExpired_expiredToken_throwsExpiredJwtException() {
+        // JJWT's parser throws ExpiredJwtException during claim parsing when the
+        // token is expired — the exception propagates out of isTokenExpired()
+        // rather than returning true.  This test documents that real behaviour.
         ReflectionTestUtils.setField(jwtUtil, "expiration", -1L);
         String token = jwtUtil.generateToken("user@example.com");
-        assertThrows(ExpiredJwtException.class, () -> jwtUtil.isTokenExpired(token));
+
+        assertThrows(ExpiredJwtException.class,
+                () -> jwtUtil.isTokenExpired(token));
     }
 
     @Test
     void extractUsername_tamperedToken_throwsException() {
         String token = jwtUtil.generateToken("user@example.com");
         String tampered = token + "TAMPERED";
+
         assertThrows(Exception.class, () -> jwtUtil.extractUsername(tampered));
     }
 }
