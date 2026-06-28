@@ -12,7 +12,6 @@ class JwtUtilTest {
 
     private JwtUtil jwtUtil;
 
-    // 512-bit base64-encoded secret (minimum safe size for HS512)
     private static final String TEST_SECRET =
             "dGVzdC1zZWNyZXQta2V5LXRoYXQtaXMtbG9uZy1lbm91Z2gtZm9yLWhzNTEy" +
                     "LWFsZ29yaXRobS10b3Bhc3MtdGhlLW1pbmltdW0tc2l6ZS1yZXF1aXJlbWVudA==";

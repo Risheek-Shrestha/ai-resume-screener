@@ -66,7 +66,7 @@ public class AuthController {
         refreshToken.setExpiryDate(Instant.now().plusSeconds(7 * 24 * 60 * 60)); // 7 days
         refreshTokenRepository.save(refreshToken);
 
-        return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken.getToken()));
+        return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken.getToken(), user.getEmail(), user.getUsername(), user.getRole().name()));
     }
 
     @PostMapping("/refresh")
@@ -84,8 +84,8 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Refresh token expired, please login again");
         }
 
-        String newAccessToken = jwtUtil.generateToken(refreshToken.getUser().getUsername());
-        return ResponseEntity.ok(new AuthResponse(newAccessToken, refreshToken.getToken()));
+        String newAccessToken = jwtUtil.generateToken(refreshToken.getUser().getEmail());
+        return ResponseEntity.ok(new AuthResponse(newAccessToken, refreshToken.getToken(), refreshToken.getUser().getEmail(), refreshToken.getUser().getUsername(), refreshToken.getUser().getRole().name()));
     }
 
     @PostMapping("/revoke")

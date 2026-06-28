@@ -145,8 +145,6 @@ class AuthControllerTest {
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 
-        // The controller throws InvalidCredentialsException which is handled by
-        // GlobalExceptionHandler and returns a JSON ErrorResponse body.
         mockMvc.perform(post("/api/v1/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -175,9 +173,7 @@ class AuthControllerTest {
         when(refreshTokenRepository.findByToken("valid-refresh-token"))
                 .thenReturn(Optional.of(refreshToken));
 
-        // FIX: The controller calls jwtUtil.generateToken(refreshToken.getUser().getUsername())
-        // so the argument must match the username field, not the email.
-        when(jwtUtil.generateToken("testuser")).thenReturn("new-access-token");
+        when(jwtUtil.generateToken("test@example.com")).thenReturn("new-access-token");
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .with(csrf())
@@ -187,8 +183,7 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.accessToken").value("new-access-token"))
                 .andExpect(jsonPath("$.refreshToken").value("valid-refresh-token"));
 
-        // FIX: verify against username, not email
-        verify(jwtUtil).generateToken("testuser");
+        verify(jwtUtil).generateToken("test@example.com");
     }
 
     @Test
