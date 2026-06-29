@@ -43,6 +43,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
       ML_SERVICE_URL: http://ml-service:8000
+      SPRING_RABBITMQ_HOST: rabbitmq
     ports:
       - "8081:8081"
 
