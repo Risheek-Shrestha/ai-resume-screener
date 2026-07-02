@@ -1,10 +1,14 @@
 package com.risheek.resume_screener.service;
 
 import com.risheek.resume_screener.dto.*;
+import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.exception.ApplicationNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
+import com.risheek.resume_screener.exception.UserNotFoundException;
+import com.risheek.resume_screener.repository.ApplicationRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -28,12 +32,14 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
+    private final ApplicationRepository applicationRepository;
     private final WebClient webClient;
 
-    public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository,
+    public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository, ApplicationRepository applicationRepository,
                          WebClient.Builder webClientBuilder, @Value("${ml.service.url}") String mlServiceUrl) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
+        this.applicationRepository = applicationRepository;
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
@@ -60,7 +66,8 @@ public class ResumeService {
                 savedResume.getId(),
                 savedResume.getFileName(),
                 savedResume.getFileType(),
-                savedResume.getResumeName()
+                savedResume.getResumeName(),
+                savedResume.getFileData()
         );
     }
 
@@ -91,7 +98,8 @@ public class ResumeService {
                 savedResume.getId(),
                 savedResume.getFileName(),
                 savedResume.getFileType(),
-                savedResume.getResumeName()
+                savedResume.getResumeName(),
+                savedResume.getFileData()
         );
     }
 
@@ -127,7 +135,8 @@ public class ResumeService {
                         resume.getId(),
                         resume.getResumeName(),
                         resume.getFileName(),
-                        resume.getFileType()
+                        resume.getFileType(),
+                        resume.getFileData()
                 ))
                 .toList();
     }
@@ -188,4 +197,37 @@ public class ResumeService {
         }
     }
 
+    @Transactional
+    public ResumeResponse getResumeForApplication(Long applicationId) {
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() ->
+                        new ApplicationNotFoundException("Application not found"));
+
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User employer = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UserNotFoundException("Authenticated user not found"));
+
+        if (!application.getJob().getUser().getId().equals(employer.getId())) {
+            throw new UnauthorizedAccessException(
+                    "You are not allowed to view this resume");
+        }
+
+        return toResponse(application.getResume());
+    }
+
+    private ResumeResponse toResponse(Resume resume) {
+
+        return new ResumeResponse(
+                resume.getId(),
+                resume.getResumeName(),
+                resume.getFileName(),
+                resume.getFileType(),
+                resume.getFileData()
+        );
+    }
 }

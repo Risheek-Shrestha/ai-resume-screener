@@ -9,6 +9,8 @@ import com.risheek.resume_screener.service.JobService;
 import com.risheek.resume_screener.service.ResumeService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,6 +58,22 @@ public class ResumeController {
         return ResponseEntity.ok(
                 resumeService.getResumeById(id)
         );
+    }
+
+    @GetMapping("/application/{applicationId}/download")
+    public ResponseEntity<byte[]> downloadResumeForApplication(
+            @PathVariable Long applicationId) {
+
+        ResumeResponse resume =
+                resumeService.getResumeForApplication(applicationId);
+
+        return ResponseEntity.ok()
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + resume.getFileName() + "\""
+                )
+                .contentType(MediaType.parseMediaType(resume.getFileType()))
+                .body(resume.getFileData());
     }
 
 }

@@ -1,14 +1,12 @@
 package com.risheek.resume_screener.controller;
 
+import com.risheek.resume_screener.dto.ScoreRequest;
 import com.risheek.resume_screener.dto.ScoreResponse;
-import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.service.ScoreService;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import org.springframework.web.bind.annotation.RequestBody;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -26,6 +24,18 @@ public class ScoreController {
     public ResponseEntity<ScoreResponse> getScoreByResume(
             @PathVariable Long resumeId, @PathVariable Long jobId) {
         return ResponseEntity.ok(scoreService.getScoreByResume(resumeId, jobId));
+    }
+
+    @PostMapping
+    public ResponseEntity<ScoreResponse> generateScore(
+            @RequestBody @Valid ScoreRequest request) {
+
+        return ResponseEntity.ok(
+                scoreService.generateScore(
+                        request.getResumeId(),
+                        request.getJobId()
+                )
+        );
     }
 
     @GetMapping("/my-scores")

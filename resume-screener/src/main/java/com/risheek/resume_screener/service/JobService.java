@@ -85,6 +85,37 @@ public class JobService {
         return toResponse(savedJob);
     }
 
+    @Cacheable(
+            value = "jobs",
+            key = "'my_jobs_' + authentication.name + '_page_' + #page + '_size_' + #size"
+    )
+    @Transactional
+    public JobPageResponse getMyJobs(int page, int size) {
+
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UserNotFoundException("Authenticated user not found"));
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<JobResponse> jobs = jobRepository
+                .findByUserId(currentUser.getId(), pageable)
+                .map(this::toResponse);
+
+        return new JobPageResponse(
+                jobs.getContent(),
+                jobs.getNumber(),
+                jobs.getSize(),
+                jobs.getTotalElements(),
+                jobs.getTotalPages(),
+                jobs.isLast()
+        );
+    }
+
     @Transactional
     @CacheEvict(value = "jobs", allEntries = true)
     public void deleteJob(Long id) {

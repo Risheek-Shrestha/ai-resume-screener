@@ -3,6 +3,8 @@ package com.risheek.resume_screener.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.dto.ScoreResponse;
 import com.risheek.resume_screener.entity.*;
+import com.risheek.resume_screener.exception.JobNotFoundException;
+import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.ScoreNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.repository.*;
@@ -36,6 +38,8 @@ class ScoreServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private JobSkillRepository jobSkillRepository;
     @Mock private WebClient.Builder webClientBuilder;
+    @Mock private ResumeRepository resumeRepository;
+    @Mock private JobRepository jobRepository;
 
     private WebClient webClient;
     private ObjectMapper objectMapper;
@@ -51,7 +55,7 @@ class ScoreServiceTest {
 
         scoreService = new ScoreService(
                 scoreRepository, userRepository, jobSkillRepository,
-                webClientBuilder, objectMapper, "http://fake-ml-service"
+                webClientBuilder, objectMapper, resumeRepository,  jobRepository, "http://fake-ml-service"
         );
 
         SecurityContext securityContext = mock(SecurityContext.class);
@@ -333,5 +337,129 @@ class ScoreServiceTest {
         List<ScoreResponse> response = scoreService.getMyScores();
 
         assertThat(response.size()).isEqualTo(0);
+    }
+
+    @Test
+    void generateScoreByIds_happyPath() {
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setDescription("Java Backend");
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+        resume.setParsedText("Java Spring Boot");
+
+        JobSkill skill = new JobSkill(null, job, "Java");
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(resumeRepository.findById(100L))
+                .thenReturn(Optional.of(resume));
+
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.of(job));
+
+        when(jobSkillRepository.findByJobId(10L))
+                .thenReturn(List.of(skill));
+
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L))
+                .thenReturn(Optional.empty());
+
+        Map<String, Object> mlResponse = Map.of(
+                "overallScore", 88.0,
+                "matchedKeywords", List.of("Java"),
+                "missingKeywords", List.of("Docker"),
+                "recommendationsSummary", "Good Match"
+        );
+
+        when(webClient.post()
+                .uri("/analyze")
+                .bodyValue(any())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block())
+                .thenReturn(mlResponse);
+
+        when(scoreRepository.save(any(Score.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ScoreResponse response = scoreService.generateScore(100L, 10L);
+
+        assertEquals(100L, response.getResumeId());
+        assertEquals(10L, response.getJobId());
+        assertEquals(BigDecimal.valueOf(88.0), response.getOverallScore());
+    }
+
+    @Test
+    void generateScoreByIds_resumeNotFound() {
+
+        when(resumeRepository.findById(100L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResumeNotFoundException.class,
+                () -> scoreService.generateScore(100L, 10L)
+        );
+    }
+
+    @Test
+    void generateScoreByIds_jobNotFound() {
+
+        User user = new User();
+        user.setId(1L);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+
+        when(resumeRepository.findById(100L))
+                .thenReturn(Optional.of(resume));
+
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                JobNotFoundException.class,
+                () -> scoreService.generateScore(100L, 10L)
+        );
+    }
+
+    @Test
+    void generateScoreByIds_unauthorizedResume() {
+
+        User currentUser = new User();
+        currentUser.setId(1L);
+        currentUser.setEmail("test@example.com");
+
+        User owner = new User();
+        owner.setId(2L);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(owner);
+
+        Job job = new Job();
+        job.setId(10L);
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(currentUser));
+
+        when(resumeRepository.findById(100L))
+                .thenReturn(Optional.of(resume));
+
+        when(jobRepository.findById(10L))
+                .thenReturn(Optional.of(job));
+
+        assertThrows(
+                UnauthorizedAccessException.class,
+                () -> scoreService.generateScore(100L, 10L)
+        );
     }
 }

@@ -16,4 +16,5 @@ public interface JobRepository extends JpaRepository<Job, Long> {
             "AND j.applicationDeadline >= CURRENT_TIMESTAMP " +
             "AND j.id NOT IN (SELECT a.job.id FROM Application a WHERE a.user.id = :userId)")
     Page<Job> findOpenJobsNotAppliedByUser(@Param("userId") Long userId, Pageable pageable);
+    Page<Job> findByUserId(Long userId, Pageable pageable);
 }

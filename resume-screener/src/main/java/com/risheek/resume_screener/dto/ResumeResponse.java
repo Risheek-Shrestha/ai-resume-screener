@@ -16,4 +16,6 @@ public class ResumeResponse {
     private String fileName;
 
     private String fileType;
+
+    private byte[] fileData;
 }

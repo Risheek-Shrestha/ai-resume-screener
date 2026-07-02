@@ -2,10 +2,14 @@ package com.risheek.resume_screener.service;
 
 import com.risheek.resume_screener.dto.ParsedTextResponse;
 import com.risheek.resume_screener.dto.ResumeResponse;
+import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.Resume;
+import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.exception.ApplicationNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
+import com.risheek.resume_screener.repository.ApplicationRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +41,8 @@ class ResumeServiceTest {
     @Mock private ResumeRepository resumeRepository;
     @Mock private UserRepository userRepository;
     @Mock private WebClient.Builder webClientBuilder;
+    @Mock
+    private ApplicationRepository applicationRepository;
 
     private WebClient webClient;
     private ResumeService resumeService;
@@ -49,8 +55,11 @@ class ResumeServiceTest {
         when(webClientBuilder.build()).thenReturn(webClient);
 
         resumeService = new ResumeService(
-                resumeRepository, userRepository,
-                webClientBuilder, "http://fake-ml-service"
+                resumeRepository,
+                userRepository,
+                applicationRepository,
+                webClientBuilder,
+                "http://fake-ml-service"
         );
 
         SecurityContext securityContext = mock(SecurityContext.class);
@@ -409,4 +418,86 @@ class ResumeServiceTest {
 
         assertThat(response).isEmpty();
     }
+
+    @Test
+    void getResumeForApplication_happyPath() {
+
+        User employer = new User();
+        employer.setId(1L);
+        employer.setEmail("test@example.com");
+
+        User candidate = new User();
+        candidate.setId(2L);
+
+        Job job = new Job();
+        job.setUser(employer);
+
+        Resume resume = new Resume();
+        resume.setId(10L);
+        resume.setResumeName("Backend Resume");
+        resume.setFileName("resume.pdf");
+        resume.setFileType("application/pdf");
+        resume.setFileData(new byte[]{1,2,3});
+        resume.setUser(candidate);
+
+        Application application = new Application();
+        application.setJob(job);
+        application.setResume(resume);
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(employer));
+
+        when(applicationRepository.findById(100L))
+                .thenReturn(Optional.of(application));
+
+        ResumeResponse response =
+                resumeService.getResumeForApplication(100L);
+
+        assertThat(response.getId()).isEqualTo(10L);
+        assertThat(response.getFileName()).isEqualTo("resume.pdf");
+    }
+
+    @Test
+    void getResumeForApplication_unauthorized() {
+
+        User employer = new User();
+        employer.setId(1L);
+        employer.setEmail("test@example.com");
+
+        User anotherEmployer = new User();
+        anotherEmployer.setId(2L);
+
+        Job job = new Job();
+        job.setUser(anotherEmployer);
+
+        Resume resume = new Resume();
+
+        Application application = new Application();
+        application.setJob(job);
+        application.setResume(resume);
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(employer));
+
+        when(applicationRepository.findById(100L))
+                .thenReturn(Optional.of(application));
+
+        assertThrows(
+                UnauthorizedAccessException.class,
+                () -> resumeService.getResumeForApplication(100L)
+        );
+    }
+
+    @Test
+    void getResumeForApplication_notFound() {
+
+        when(applicationRepository.findById(100L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ApplicationNotFoundException.class,
+                () -> resumeService.getResumeForApplication(100L)
+        );
+    }
+
 }

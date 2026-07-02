@@ -3,12 +3,8 @@ package com.risheek.resume_screener.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.dto.ScoreResponse;
 import com.risheek.resume_screener.entity.*;
-import com.risheek.resume_screener.exception.ScoreNotFoundException;
-import com.risheek.resume_screener.exception.UnauthorizedAccessException;
-import com.risheek.resume_screener.exception.UserNotFoundException;
-import com.risheek.resume_screener.repository.JobSkillRepository;
-import com.risheek.resume_screener.repository.ScoreRepository;
-import com.risheek.resume_screener.repository.UserRepository;
+import com.risheek.resume_screener.exception.*;
+import com.risheek.resume_screener.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -27,18 +23,24 @@ public class ScoreService {
     private final JobSkillRepository jobSkillRepository;
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final ResumeRepository resumeRepository;
+    private final JobRepository jobRepository;
 
     public ScoreService(ScoreRepository scoreRepository,
                         UserRepository userRepository,
                         JobSkillRepository jobSkillRepository,
                         WebClient.Builder webClientBuilder,
                         ObjectMapper objectMapper,
+                        ResumeRepository resumeRepository,
+                        JobRepository jobRepository,
                         @Value("${ml.service.url}") String mlServiceUrl) {
         this.scoreRepository = scoreRepository;
         this.userRepository = userRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
         this.objectMapper = objectMapper;
+        this.resumeRepository = resumeRepository;
+        this.jobRepository = jobRepository;
     }
 
     @Transactional
@@ -84,6 +86,35 @@ public class ScoreService {
 
         scoreRepository.save(score);
         return score;
+    }
+
+    @Transactional
+    public ScoreResponse generateScore(Long resumeId, Long jobId) {
+
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() ->
+                        new ResumeNotFoundException("Resume not found"));
+
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() ->
+                        new JobNotFoundException("Job not found"));
+
+        String email = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new UserNotFoundException("Authenticated user not found"));
+
+        if (!resume.getUser().getId().equals(currentUser.getId())) {
+            throw new UnauthorizedAccessException(
+                    "You are not allowed to access this resume");
+        }
+
+        Score score = generateScore(resume, job);
+
+        return mapToResponse(score);
     }
 
     private String toJson(Object obj) {

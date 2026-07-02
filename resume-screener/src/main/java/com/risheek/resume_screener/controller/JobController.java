@@ -23,6 +23,16 @@ public class JobController {
         return ResponseEntity.status(201).body(jobService.createJob(request));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<JobPageResponse> getMyJobs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        return ResponseEntity.ok(
+                jobService.getMyJobs(page, size)
+        );
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<JobResponse> getJobById(@PathVariable Long id) {
         return ResponseEntity.ok(jobService.getJobById(id));

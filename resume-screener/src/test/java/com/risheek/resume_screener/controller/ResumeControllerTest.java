@@ -22,8 +22,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ResumeController.class)
 @Import(SecurityConfig.class)
@@ -41,11 +40,27 @@ class ResumeControllerTest {
     @MockitoBean
     private CustomUserDetailService customUserDetailService;
 
+    private static final byte[] FILE_DATA = "dummy pdf".getBytes();
+
     @Test
     @WithMockUser
     void getMyResumes_returnsListOf200() throws Exception {
-        ResumeResponse r1 = new ResumeResponse(1L, "Backend Dev Resume", "resume1.pdf", "pdf");
-        ResumeResponse r2 = new ResumeResponse(2L, "Backend Dev Resume", "resume2.pdf", "pdf");
+
+        ResumeResponse r1 =
+                new ResumeResponse(
+                        1L,
+                        "Backend Dev Resume",
+                        "resume1.pdf",
+                        "application/pdf",
+                        FILE_DATA);
+
+        ResumeResponse r2 =
+                new ResumeResponse(
+                        2L,
+                        "Backend Dev Resume",
+                        "resume2.pdf",
+                        "application/pdf",
+                        FILE_DATA);
 
         when(resumeService.getMyResumes()).thenReturn(List.of(r1, r2));
 
@@ -58,7 +73,14 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void getResumeById_existingId_returns200() throws Exception {
-        ResumeResponse response = new ResumeResponse(1L, "Backend Dev Resume", "resume.pdf", "pdf");
+
+        ResumeResponse response =
+                new ResumeResponse(
+                        1L,
+                        "Backend Dev Resume",
+                        "resume.pdf",
+                        "application/pdf",
+                        FILE_DATA);
 
         when(resumeService.getResumeById(1L)).thenReturn(response);
 
@@ -71,6 +93,7 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void getResumeById_nonExistingId_returns404() throws Exception {
+
         when(resumeService.getResumeById(999L))
                 .thenThrow(new ResumeNotFoundException("Resume not found"));
 
@@ -81,52 +104,89 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void uploadResume_validRequest_returns201() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "resume.pdf", MediaType.APPLICATION_PDF_VALUE, "content".getBytes());
 
-        ResumeResponse response = new ResumeResponse(1L, "Backend Dev Resume", "resume.pdf", "application/pdf");
+        MockMultipartFile file =
+                new MockMultipartFile(
+                        "file",
+                        "resume.pdf",
+                        MediaType.APPLICATION_PDF_VALUE,
+                        "content".getBytes());
 
-        when(resumeService.uploadResume(any(), anyString())).thenReturn(response);
+        ResumeResponse response =
+                new ResumeResponse(
+                        1L,
+                        "Backend Dev Resume",
+                        "resume.pdf",
+                        "application/pdf",
+                        FILE_DATA);
 
-        mockMvc.perform(multipart("/api/v1/resumes")
-                        .file(file)
-                        .param("resumeName", "Backend Dev Resume")
-                        .with(csrf()))
+        when(resumeService.uploadResume(any(), anyString()))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        multipart("/api/v1/resumes")
+                                .file(file)
+                                .param("resumeName", "Backend Dev Resume")
+                                .with(csrf()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1));
 
-        verify(resumeService).uploadResume(any(), eq("Backend Dev Resume"));
+        verify(resumeService)
+                .uploadResume(any(), eq("Backend Dev Resume"));
     }
 
     @Test
     @WithMockUser
     void uploadResume_missingParam_returns400() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "resume.pdf", MediaType.APPLICATION_PDF_VALUE, "content".getBytes());
 
-        mockMvc.perform(multipart("/api/v1/resumes")
-                        .file(file)
-                        .with(csrf()))
+        MockMultipartFile file =
+                new MockMultipartFile(
+                        "file",
+                        "resume.pdf",
+                        MediaType.APPLICATION_PDF_VALUE,
+                        "content".getBytes());
+
+        mockMvc.perform(
+                        multipart("/api/v1/resumes")
+                                .file(file)
+                                .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(resumeService, never()).uploadResume(any(), any());
+        verify(resumeService, never())
+                .uploadResume(any(), any());
     }
 
     @Test
     @WithMockUser
     void updateResume_validRequest_returns200() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "updated.pdf", MediaType.APPLICATION_PDF_VALUE, "content".getBytes());
 
-        ResumeResponse response = new ResumeResponse(1L, "Updated Resume", "updated.pdf", "application/pdf");
+        MockMultipartFile file =
+                new MockMultipartFile(
+                        "file",
+                        "updated.pdf",
+                        MediaType.APPLICATION_PDF_VALUE,
+                        "content".getBytes());
 
-        when(resumeService.updateResume(eq(1L), any(), anyString())).thenReturn(response);
+        ResumeResponse response =
+                new ResumeResponse(
+                        1L,
+                        "Updated Resume",
+                        "updated.pdf",
+                        "application/pdf",
+                        FILE_DATA);
 
-        mockMvc.perform(multipart("/api/v1/resumes/1")
-                        .file(file)
-                        .param("resumeName", "Updated Resume")
-                        .with(request -> { request.setMethod("PUT"); return request; })
-                        .with(csrf()))
+        when(resumeService.updateResume(eq(1L), any(), anyString()))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        multipart("/api/v1/resumes/1")
+                                .file(file)
+                                .param("resumeName", "Updated Resume")
+                                .with(request -> {
+                                    request.setMethod("PUT");
+                                    return request;
+                                })
+                                .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fileName").value("updated.pdf"));
     }
@@ -134,23 +194,33 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void updateResume_nonExistingId_returns404() throws Exception {
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "resume.pdf", MediaType.APPLICATION_PDF_VALUE, "content".getBytes());
+
+        MockMultipartFile file =
+                new MockMultipartFile(
+                        "file",
+                        "resume.pdf",
+                        MediaType.APPLICATION_PDF_VALUE,
+                        "content".getBytes());
 
         when(resumeService.updateResume(eq(999L), any(), anyString()))
                 .thenThrow(new ResumeNotFoundException("Resume not found"));
 
-        mockMvc.perform(multipart("/api/v1/resumes/999")
-                        .file(file)
-                        .param("resumeName", "Resume")
-                        .with(request -> { request.setMethod("PUT"); return request; })
-                        .with(csrf()))
+        mockMvc.perform(
+                        multipart("/api/v1/resumes/999")
+                                .file(file)
+                                .param("resumeName", "Resume")
+                                .with(request -> {
+                                    request.setMethod("PUT");
+                                    return request;
+                                })
+                                .with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @WithMockUser
     void deleteResume_existingId_returns204() throws Exception {
+
         doNothing().when(resumeService).deleteResume(1L);
 
         mockMvc.perform(delete("/api/v1/resumes/1").with(csrf()))
@@ -162,10 +232,58 @@ class ResumeControllerTest {
     @Test
     @WithMockUser
     void deleteResume_nonExistingId_returns404() throws Exception {
+
         doThrow(new ResumeNotFoundException("Resume not found"))
-                .when(resumeService).deleteResume(999L);
+                .when(resumeService)
+                .deleteResume(999L);
 
         mockMvc.perform(delete("/api/v1/resumes/999").with(csrf()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void getResumeForApplication_returns200() throws Exception {
+
+        ResumeResponse response =
+                new ResumeResponse(
+                        1L,
+                        "Backend Resume",
+                        "resume.pdf",
+                        "application/pdf",
+                        FILE_DATA);
+
+        when(resumeService.getResumeForApplication(10L))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/resumes/application/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.fileName").value("resume.pdf"));
+    }
+
+    @Test
+    @WithMockUser
+    void downloadResumeForApplication_returnsPdf() throws Exception {
+
+        ResumeResponse response =
+                new ResumeResponse(
+                        1L,
+                        "Backend Resume",
+                        "resume.pdf",
+                        "application/pdf",
+                        FILE_DATA);
+
+        when(resumeService.getResumeForApplication(10L))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                        get("/api/v1/resumes/application/10/download"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Content-Disposition",
+                        "inline; filename=\"resume.pdf\""))
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(content().bytes(FILE_DATA));
     }
 }
