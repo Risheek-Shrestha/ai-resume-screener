@@ -8,6 +8,7 @@ import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.Score;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.ScoreNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
@@ -43,21 +44,18 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class SuggestionServiceTest {
 
-    @Mock
-    private ScoreRepository scoreRepository;
-    @Mock
-    private ResumeRepository resumeRepository;
-    @Mock
-    private JobRepository jobRepository;
-    @Mock
-    private JobSkillRepository jobSkillRepository;
-    @Mock
-    private WebClient.Builder webClientBuilder;
+    @Mock private ScoreRepository scoreRepository;
+    @Mock private ResumeRepository resumeRepository;
+    @Mock private JobRepository jobRepository;
+    @Mock private JobSkillRepository jobSkillRepository;
+    @Mock private WebClient.Builder webClientBuilder;
 
     private WebClient webClient;
     private SuggestionService suggestionService;
 
     private static final String EMAIL = "test@example.com";
+    private static final Long RESUME_ID = 100L;
+    private static final Long JOB_ID = 50L;
 
     @BeforeEach
     void setUp() {
@@ -66,13 +64,8 @@ class SuggestionServiceTest {
         when(webClientBuilder.build()).thenReturn(webClient);
 
         suggestionService = new SuggestionService(
-                scoreRepository,
-                resumeRepository,
-                jobRepository,
-                jobSkillRepository,
-                new ObjectMapper(),
-                webClientBuilder,
-                "http://localhost:8000"
+                scoreRepository, resumeRepository, jobRepository,
+                jobSkillRepository, new ObjectMapper(), webClientBuilder, "http://localhost:8000"
         );
 
         SecurityContext securityContext = mock(SecurityContext.class);
@@ -87,37 +80,55 @@ class SuggestionServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    @Test
-    void getImprovementSuggestions_happyPath_buildsResponseFromMlFields() {
+    private User buildUser() {
         User user = new User();
         user.setId(1L);
         user.setEmail(EMAIL);
+        return user;
+    }
 
+    private Job buildJob() {
         Job job = new Job();
-        job.setUser(user);
-        job.setId(50L);
+        job.setId(JOB_ID);
         job.setTitle("Backend Developer");
         job.setDescription("Build and maintain REST APIs");
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
+        return job;
+    }
 
+    private Resume buildResume(User user) {
         Resume resume = new Resume();
-        resume.setId(100L);
+        resume.setId(RESUME_ID);
         resume.setUser(user);
-        resume.setJob(job);
         resume.setParsedText("Experienced Java developer with Spring Boot background");
+        return resume;
+    }
 
+    private Score buildScore(String matched, String missing, BigDecimal overall) {
         Score score = new Score();
-        score.setOverallScore(new BigDecimal("75"));
-        score.setMatchedKeywords("[\"Java\"]");
-        score.setMissingKeywords("[\"Kubernetes\"]");
+        score.setOverallScore(overall);
+        score.setMatchedKeywords(matched);
+        score.setMissingKeywords(missing);
+        return score;
+    }
+
+    @Test
+    void getImprovementSuggestions_happyPath_buildsResponseFromMlFields() {
+        User user = buildUser();
+        Job job = buildJob();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\"]", "[\"Kubernetes\"]", new BigDecimal("75"));
 
         JobSkill skill = new JobSkill();
         skill.setSkillName("Java");
 
-        when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
-        when(jobSkillRepository.findByJobId(50L)).thenReturn(List.of(skill));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobSkillRepository.findByJobId(JOB_ID)).thenReturn(List.of(skill));
 
         Map<String, Object> mlResponse = Map.of(
                 "scoreLevel", "GOOD",
@@ -126,18 +137,12 @@ class SuggestionServiceTest {
                 "suggestedLearningPaths", List.of("Educative System Design course"),
                 "resumeImprovementTips", List.of("Quantify your impact with metrics")
         );
+        when(webClient.post().uri("/suggest").bodyValue(any()).retrieve()
+                .bodyToMono(Map.class).block()).thenReturn(mlResponse);
 
-        when(webClient.post()
-                .uri("/suggest")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block())
-                .thenReturn(mlResponse);
+        SuggestionResponse result = suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID);
 
-        SuggestionResponse result = suggestionService.getImprovementSuggestions(100L);
-
-        assertThat(result.getResumeId()).isEqualTo(100L);
+        assertThat(result.getResumeId()).isEqualTo(RESUME_ID);
         assertThat(result.getScoreLevel()).isEqualTo("GOOD");
         assertThat(result.getWeakAreas()).containsExactly("System Design");
         assertThat(result.getActionableSteps()).containsExactly("Practice mock interviews");
@@ -147,218 +152,127 @@ class SuggestionServiceTest {
 
     @Test
     void getImprovementSuggestions_resumeNotFound_throwsResumeNotFoundException() {
-        when(resumeRepository.findById(100L)).thenReturn(Optional.empty());
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.empty());
 
         assertThrows(ResumeNotFoundException.class,
-                () -> suggestionService.getImprovementSuggestions(100L));
+                () -> suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID));
     }
 
     @Test
     void getImprovementSuggestions_wrongOwner_throwsUnauthorizedAccessException() {
-
         User owner = new User();
-        owner.setId(1L);
+        owner.setId(99L);
         owner.setEmail("owner@test.com");
 
-        Job job = new Job();
-        job.setId(50L);
-        job.setUser(owner);
+        Resume resume = buildResume(owner);
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
 
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(owner);
-        resume.setJob(job);
-        resume.setParsedText("Experienced Java developer");
-
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        assertThrows(
-                UnauthorizedAccessException.class,
-                () -> suggestionService.getImprovementSuggestions(100L)
-        );
+        assertThrows(UnauthorizedAccessException.class,
+                () -> suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID));
     }
 
     @Test
-    void getImprovementSuggestions_scoreNotFound_throwsScoreNotFoundException(){
+    void getImprovementSuggestions_jobNotFound_throwsJobNotFoundException() {
+        User user = buildUser();
+        Resume resume = buildResume(user);
 
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.empty());
 
-        Job job = new Job();
-        job.setId(50L);
-        job.setUser(user);
+        assertThrows(JobNotFoundException.class,
+                () -> suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID));
+    }
 
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setJob(job);
-        resume.setParsedText("Experienced Java developer");
+    @Test
+    void getImprovementSuggestions_scoreNotFound_throwsScoreNotFoundException() {
+        User user = buildUser();
+        Job job = buildJob();
+        Resume resume = buildResume(user);
 
-        Score score = new Score();
-        score.setOverallScore(new BigDecimal("75"));
-        score.setMatchedKeywords("[\"Java\"]");
-        score.setMissingKeywords("[\"Kubernetes\"]");
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.empty());
 
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ScoreNotFoundException.class,
-                () -> suggestionService.getImprovementSuggestions(100L)
-        );
+        assertThrows(ScoreNotFoundException.class,
+                () -> suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID));
     }
 
     @Test
     void getImprovementSuggestions_mlFails_returnsStrongFallback() {
+        User user = buildUser();
+        Job job = buildJob();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\"]", "[\"Kubernetes\"]", new BigDecimal("85"));
 
-        Resume resume = createResume();
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobSkillRepository.findByJobId(JOB_ID)).thenReturn(List.of());
+        when(webClient.post().uri("/suggest").bodyValue(any()).retrieve()
+                .bodyToMono(Map.class).block()).thenThrow(new RuntimeException("ML down"));
 
-        Score score = new Score();
-        score.setOverallScore(new BigDecimal("85"));
-        score.setMatchedKeywords("[\"Java\"]");
-        score.setMissingKeywords("[\"Kubernetes\"]");
-
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
-        when(webClient.post()
-                .uri("/suggest")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block())
-                .thenThrow(new RuntimeException("ML service down"));
-
-        SuggestionResponse result =
-                suggestionService.getImprovementSuggestions(100L);
+        SuggestionResponse result = suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID);
 
         assertThat(result.getScoreLevel()).isEqualTo("STRONG");
-
-        assertThat(result.getWeakAreas())
-                .anyMatch(s -> s.contains("ML service unavailable"));
-
-        assertThat(result.getActionableSteps())
-                .anyMatch(s -> s.contains("Kubernetes"));
+        assertThat(result.getWeakAreas()).anyMatch(s -> s.contains("ML service unavailable"));
+        assertThat(result.getActionableSteps()).anyMatch(s -> s.contains("Kubernetes"));
     }
 
     @Test
     void getImprovementSuggestions_mlFails_returnsModerateFallback() {
+        User user = buildUser();
+        Job job = buildJob();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\"]", "[\"Kubernetes\"]", new BigDecimal("75"));
 
-        Resume resume = createResume();
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobSkillRepository.findByJobId(JOB_ID)).thenReturn(List.of());
+        when(webClient.post().uri("/suggest").bodyValue(any()).retrieve()
+                .bodyToMono(Map.class).block()).thenThrow(new RuntimeException("ML down"));
 
-        Score score = new Score();
-        score.setOverallScore(new BigDecimal("75"));
-        score.setMatchedKeywords("[\"Java\"]");
-        score.setMissingKeywords("[\"Kubernetes\"]");
-
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
-        when(webClient.post()
-                .uri("/suggest")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block())
-                .thenThrow(new RuntimeException("ML service down"));
-
-        SuggestionResponse result =
-                suggestionService.getImprovementSuggestions(100L);
+        SuggestionResponse result = suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID);
 
         assertThat(result.getScoreLevel()).isEqualTo("MODERATE");
-
-        assertThat(result.getWeakAreas())
-                .anyMatch(s -> s.contains("ML service unavailable"));
-
-        assertThat(result.getActionableSteps())
-                .anyMatch(s -> s.contains("Kubernetes"));
     }
 
     @Test
     void getImprovementSuggestions_mlFails_returnsWeakFallback() {
+        User user = buildUser();
+        Job job = buildJob();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\"]", "[\"Kubernetes\"]", new BigDecimal("40"));
 
-        Resume resume = createResume();
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobSkillRepository.findByJobId(JOB_ID)).thenReturn(List.of());
+        when(webClient.post().uri("/suggest").bodyValue(any()).retrieve()
+                .bodyToMono(Map.class).block()).thenThrow(new RuntimeException("ML down"));
 
-        Score score = new Score();
-        score.setOverallScore(new BigDecimal("40"));
-        score.setMatchedKeywords("[\"Java\"]");
-        score.setMissingKeywords("[\"Kubernetes\"]");
-
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
-        when(webClient.post()
-                .uri("/suggest")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block())
-                .thenThrow(new RuntimeException("ML service down"));
-
-        SuggestionResponse result =
-                suggestionService.getImprovementSuggestions(100L);
+        SuggestionResponse result = suggestionService.getImprovementSuggestions(RESUME_ID, JOB_ID);
 
         assertThat(result.getScoreLevel()).isEqualTo("WEAK");
-
-        assertThat(result.getWeakAreas())
-                .anyMatch(s -> s.contains("ML service unavailable"));
-
-        assertThat(result.getActionableSteps())
-                .anyMatch(s -> s.contains("Kubernetes"));
     }
 
     @Test
     void getSuggestedJobs_happyPath_mapsMlResultsCorrectly() {
+        User user = buildUser();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\",\"Spring Boot\"]", "[]", new BigDecimal("80"));
 
-        User user = new User();
-        user.setEmail(EMAIL);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setParsedText("Java Spring Boot Developer");
-
-        Score score = new Score();
-        score.setMatchedKeywords("[\"Java\",\"Spring Boot\"]");
-
-        Job job = new Job();
-        job.setId(1L);
-        job.setTitle("Backend Developer");
-        job.setDescription("Backend API development");
-        job.setJobType(Job.JobType.FULL_TIME);
-        job.setExperienceLevel(Job.ExperienceLevel.MID);
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-
+        Job job = buildJob();
         JobSkill skill = new JobSkill();
         skill.setSkillName("Java");
 
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
-        when(jobRepository.findAll())
-                .thenReturn(List.of(job));
-
-        when(jobSkillRepository.findByJobId(1L))
-                .thenReturn(List.of(skill));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobRepository.findAll()).thenReturn(List.of(job));
+        when(jobSkillRepository.findByJobId(JOB_ID)).thenReturn(List.of(skill));
 
         Map<String, Object> mlResult = Map.of(
-                "jobId", 1,
+                "jobId", 50,
                 "jobTitle", "Backend Developer",
                 "jobType", "FULL_TIME",
                 "experienceLevel", "MID",
@@ -368,27 +282,15 @@ class SuggestionServiceTest {
                 "semanticSimilarity", 0.88,
                 "whyMatch", "Strong Java alignment"
         );
+        when(webClient.post().uri("/match-jobs").bodyValue(any()).retrieve()
+                .bodyToFlux(Map.class).collectList().block()).thenReturn(List.of(mlResult));
 
-        when(webClient.post()
-                .uri("/match-jobs")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToFlux(Map.class)
-                .collectList()
-                .block())
-                .thenReturn(List.of(mlResult));
-
-        List<JobSuggestionResponse> results =
-                suggestionService.getSuggestedJobs(100L);
+        List<JobSuggestionResponse> results = suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID);
 
         assertThat(results).hasSize(1);
-
         JobSuggestionResponse result = results.getFirst();
-
-        assertThat(result.getJobId()).isEqualTo(1L);
+        assertThat(result.getJobId()).isEqualTo(50L);
         assertThat(result.getJobTitle()).isEqualTo("Backend Developer");
-        assertThat(result.getJobType()).isEqualTo("FULL_TIME");
-        assertThat(result.getExperienceLevel()).isEqualTo("MID");
         assertThat(result.getMatchPercentage()).isEqualTo(92.5);
         assertThat(result.getMatchedSkills()).containsExactly("Java");
         assertThat(result.getMissingSkills()).containsExactly("Docker");
@@ -398,186 +300,87 @@ class SuggestionServiceTest {
 
     @Test
     void getSuggestedJobs_resumeNotFound_throwsResumeNotFoundException() {
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.empty());
 
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.empty());
-
-        assertThrows(
-                ResumeNotFoundException.class,
-                () -> suggestionService.getSuggestedJobs(100L)
-        );
+        assertThrows(ResumeNotFoundException.class,
+                () -> suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID));
     }
 
     @Test
     void getSuggestedJobs_wrongOwner_throwsUnauthorizedAccessException() {
-
         User owner = new User();
         owner.setEmail("owner@test.com");
+        Resume resume = buildResume(owner);
 
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(owner);
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
 
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        assertThrows(
-                UnauthorizedAccessException.class,
-                () -> suggestionService.getSuggestedJobs(100L)
-        );
+        assertThrows(UnauthorizedAccessException.class,
+                () -> suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID));
     }
 
     @Test
-    void getSuggestedJobs_mlFails_fallsBackAndFiltersZeroMatchesLimitsToFive() {
+    void getSuggestedJobs_mlFails_fallbackFiltersZeroMatchesAndLimitsToFive() {
+        User user = buildUser();
+        Resume resume = buildResume(user);
+        Score score = buildScore("[\"Java\",\"Spring\",\"Docker\"]", "[]", new BigDecimal("80"));
 
-        User user = new User();
-        user.setEmail(EMAIL);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setParsedText("Java Spring Docker");
-
-        Score score = new Score();
-        score.setMatchedKeywords("[\"Java\",\"Spring\",\"Docker\"]");
-
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
-
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
 
         List<Job> jobs = new ArrayList<>();
-
         for (long i = 1; i <= 6; i++) {
-            Job job = new Job();
-            job.setId(i);
-            job.setTitle("Job " + i);
-            job.setDescription("Description " + i);
-            job.setJobType(Job.JobType.FULL_TIME);
-            job.setExperienceLevel(Job.ExperienceLevel.MID);
-            job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-            job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-            jobs.add(job);
+            Job j = new Job();
+            j.setId(i);
+            j.setTitle("Job " + i);
+            j.setDescription("Description " + i);
+            j.setJobType(Job.JobType.FULL_TIME);
+            j.setExperienceLevel(Job.ExperienceLevel.MID);
+            j.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
+            j.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
+            jobs.add(j);
         }
-
         when(jobRepository.findAll()).thenReturn(jobs);
 
-        when(jobSkillRepository.findByJobId(1L))
-                .thenReturn(List.of(skill("Java"), skill("Spring")));
+        when(jobSkillRepository.findByJobId(1L)).thenReturn(List.of(skill("Java"), skill("Spring")));
+        when(jobSkillRepository.findByJobId(2L)).thenReturn(List.of(skill("Java")));
+        when(jobSkillRepository.findByJobId(3L)).thenReturn(List.of(skill("Spring")));
+        when(jobSkillRepository.findByJobId(4L)).thenReturn(List.of(skill("Docker")));
+        when(jobSkillRepository.findByJobId(5L)).thenReturn(List.of(skill("Java"), skill("Docker")));
+        when(jobSkillRepository.findByJobId(6L)).thenReturn(List.of(skill("Python"))); // 0% match
 
-        when(jobSkillRepository.findByJobId(2L))
-                .thenReturn(List.of(skill("Java")));
+        when(webClient.post().uri("/match-jobs").bodyValue(any()).retrieve()
+                .bodyToFlux(Map.class).collectList().block()).thenThrow(new RuntimeException("ML offline"));
 
-        when(jobSkillRepository.findByJobId(3L))
-                .thenReturn(List.of(skill("Spring")));
-
-        when(jobSkillRepository.findByJobId(4L))
-                .thenReturn(List.of(skill("Docker")));
-
-        when(jobSkillRepository.findByJobId(5L))
-                .thenReturn(List.of(skill("Java"), skill("Docker")));
-
-        when(jobSkillRepository.findByJobId(6L))
-                .thenReturn(List.of(skill("Python"))); // 0%
-
-        when(webClient.post()
-                .uri("/match-jobs")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToFlux(Map.class)
-                .collectList()
-                .block())
-                .thenThrow(new RuntimeException("ML offline"));
-
-        List<JobSuggestionResponse> results =
-                suggestionService.getSuggestedJobs(100L);
+        List<JobSuggestionResponse> results = suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID);
 
         assertThat(results.size()).isLessThanOrEqualTo(5);
-
-        assertThat(results)
-                .allMatch(r ->
-                        r.getWhyMatch().equals(
-                                "Match based on keyword analysis only (ML service offline)"
-                        ));
-
-        assertThat(results)
-                .noneMatch(r -> r.getJobId().equals(6L));
-
+        assertThat(results).noneMatch(r -> r.getJobId().equals(6L));
+        assertThat(results).allMatch(r -> r.getWhyMatch()
+                .equals("Match based on keyword analysis only (ML service offline)"));
         for (int i = 0; i < results.size() - 1; i++) {
             assertThat(results.get(i).getMatchPercentage())
-                    .isGreaterThanOrEqualTo(
-                            results.get(i + 1).getMatchPercentage()
-                    );
+                    .isGreaterThanOrEqualTo(results.get(i + 1).getMatchPercentage());
         }
     }
 
     @Test
-    void parseJsonList_malformedJson_returnsEmptyListNotException() {
-
-        User user = new User();
-        user.setEmail(EMAIL);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setParsedText("Java Developer");
-
+    void parseJsonList_malformedJson_returnsEmptyListWithoutThrowing() {
+        User user = buildUser();
+        Resume resume = buildResume(user);
         Score score = new Score();
-
         score.setMatchedKeywords("not-valid-json");
 
-        when(resumeRepository.findById(100L))
-                .thenReturn(Optional.of(resume));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
+        when(jobRepository.findAll()).thenReturn(List.of());
+        when(webClient.post().uri("/match-jobs").bodyValue(any()).retrieve()
+                .bodyToFlux(Map.class).collectList().block()).thenThrow(new RuntimeException());
 
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
-        when(jobRepository.findAll())
-                .thenReturn(List.of());
-
-        when(webClient.post()
-                .uri("/match-jobs")
-                .bodyValue(any())
-                .retrieve()
-                .bodyToFlux(Map.class)
-                .collectList()
-                .block())
-                .thenThrow(new RuntimeException());
-
-        assertThatCode(() ->
-                suggestionService.getSuggestedJobs(100L))
+        assertThatCode(() -> suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID))
                 .doesNotThrowAnyException();
 
-        List<JobSuggestionResponse> result =
-                suggestionService.getSuggestedJobs(100L);
-
+        List<JobSuggestionResponse> result = suggestionService.getSuggestedJobs(RESUME_ID, JOB_ID);
         assertThat(result).isEmpty();
-    }
-
-
-    private Resume createResume() {
-        User user = new User();
-        user.setId(1L);
-        user.setEmail(EMAIL);
-
-        Job job = new Job();
-        job.setId(50L);
-        job.setUser(user);
-        job.setTitle("Backend Developer");
-        job.setDescription("Build and maintain REST APIs");
-        job.setJobType(Job.JobType.FULL_TIME);
-        job.setExperienceLevel(Job.ExperienceLevel.MID);
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setJob(job);
-        resume.setParsedText("Experienced Java developer");
-
-        return resume;
     }
 
     private JobSkill skill(String name) {
@@ -585,5 +388,4 @@ class SuggestionServiceTest {
         skill.setSkillName(name);
         return skill;
     }
-
 }

@@ -25,11 +25,16 @@ class PdfReportServiceTest {
     @Mock
     private ReportService reportService;
 
-    private PdfReportService pdfReportService;
+    private static final Long RESUME_ID = 1L;
+    private static final Long JOB_ID = 10L;
+
+    private PdfReportService pdfReportService() {
+        return new PdfReportService(reportService);
+    }
 
     private ReportResponse buildFullReport() {
         return new ReportResponse(
-                1L,
+                RESUME_ID,
                 "Backend Developer",
                 new BigDecimal("85"),
                 "Strong Match",
@@ -49,11 +54,9 @@ class PdfReportServiceTest {
 
     @Test
     void generatePdf_happyPath_returnsNonEmptyByteArray() {
-        pdfReportService = new PdfReportService(reportService);
+        when(reportService.generateReport(RESUME_ID, JOB_ID)).thenReturn(buildFullReport());
 
-        when(reportService.generateReport(1L)).thenReturn(buildFullReport());
-
-        byte[] result = pdfReportService.generatePdf(1L);
+        byte[] result = pdfReportService().generatePdf(RESUME_ID, JOB_ID);
 
         assertThat(result).isNotNull();
         assertThat(result.length).isGreaterThan(0);
@@ -61,12 +64,10 @@ class PdfReportServiceTest {
 
     @Test
     void generatePdf_textContainsExpectedSections() throws IOException {
-        pdfReportService = new PdfReportService(reportService);
-
         ReportResponse report = buildFullReport();
-        when(reportService.generateReport(1L)).thenReturn(report);
+        when(reportService.generateReport(RESUME_ID, JOB_ID)).thenReturn(report);
 
-        byte[] result = pdfReportService.generatePdf(1L);
+        byte[] result = pdfReportService().generatePdf(RESUME_ID, JOB_ID);
         String text = extractText(result);
 
         assertThat(text).contains(report.getJobTitle());
@@ -74,7 +75,6 @@ class PdfReportServiceTest {
         assertThat(text).contains("Strengths:");
         assertThat(text).contains("Skill Gaps:");
         assertThat(text).contains("Recommendations:");
-
         for (String strength : report.getStrengths()) {
             assertThat(text).contains(strength);
         }
@@ -85,33 +85,25 @@ class PdfReportServiceTest {
 
     @Test
     void generatePdf_emptyGapsList_writesNoneLine() throws IOException {
-        pdfReportService = new PdfReportService(reportService);
-
         ReportResponse report = new ReportResponse(
-                1L,
-                "Backend Developer",
-                new BigDecimal("85"),
-                "Strong Match",
-                List.of("Java", "Spring Boot"),
-                Collections.emptyList(),
-                List.of("Add a project demonstrating cloud deployment"),
-                "Ready to Apply"
+                RESUME_ID, "Backend Developer", new BigDecimal("85"), "Strong Match",
+                List.of("Java", "Spring Boot"), Collections.emptyList(),
+                List.of("Add a project demonstrating cloud deployment"), "Ready to Apply"
         );
-        when(reportService.generateReport(1L)).thenReturn(report);
+        when(reportService.generateReport(RESUME_ID, JOB_ID)).thenReturn(report);
 
-        byte[] result = pdfReportService.generatePdf(1L);
+        byte[] result = pdfReportService().generatePdf(RESUME_ID, JOB_ID);
         String text = extractText(result);
 
         assertThat(text).contains("- None");
     }
 
     @Test
-    void generatePdf_reportServiceThrows_propagatesExceptionUnchanged() {
-        pdfReportService = new PdfReportService(reportService);
-
-        when(reportService.generateReport(1L)).thenThrow(new ResumeNotFoundException("Resume not found"));
+    void generatePdf_reportServiceThrows_propagatesException() {
+        when(reportService.generateReport(RESUME_ID, JOB_ID))
+                .thenThrow(new ResumeNotFoundException("Resume not found"));
 
         assertThrows(ResumeNotFoundException.class,
-                () -> pdfReportService.generatePdf(1L));
+                () -> pdfReportService().generatePdf(RESUME_ID, JOB_ID));
     }
 }

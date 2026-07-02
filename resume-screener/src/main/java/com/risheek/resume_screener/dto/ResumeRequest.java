@@ -20,6 +20,4 @@ public class ResumeRequest {
     @NotNull(message = "File data required")
     private byte[] fileData;
 
-    private Long jobId;
-
 }

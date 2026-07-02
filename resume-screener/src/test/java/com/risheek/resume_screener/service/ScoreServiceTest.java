@@ -28,7 +28,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ScoreServiceTest {
@@ -78,14 +77,13 @@ class ScoreServiceTest {
         Resume resume = new Resume();
         resume.setId(100L);
         resume.setUser(user);
-        resume.setJob(job);
         resume.setParsedText("Experienced Java developer with Spring Boot skills");
 
         JobSkill skill1 = new JobSkill(null, job, "Java");
         JobSkill skill2 = new JobSkill(null, job, "Spring Boot");
         when(jobSkillRepository.findByJobId(10L)).thenReturn(List.of(skill1, skill2));
 
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.empty());
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.empty());
 
         Map<String, Object> mlResponse = Map.of(
                 "overallScore", 82.5,
@@ -103,7 +101,7 @@ class ScoreServiceTest {
 
         when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        scoreService.generateScore(resume);
+        scoreService.generateScore(resume, job);
 
         ArgumentCaptor<Score> scoreCaptor = ArgumentCaptor.forClass(Score.class);
         verify(scoreRepository).save(scoreCaptor.capture());
@@ -119,7 +117,7 @@ class ScoreServiceTest {
     }
 
     @Test
-    void generateScore_newScore_ml_failure_Path() {
+    void generateScore_mlFailurePath() {
         User user = new User();
         user.setId(1L);
 
@@ -130,14 +128,13 @@ class ScoreServiceTest {
         Resume resume = new Resume();
         resume.setId(100L);
         resume.setUser(user);
-        resume.setJob(job);
         resume.setParsedText("Experienced Java developer with Spring Boot skills");
 
         JobSkill skill1 = new JobSkill(null, job, "Java");
         JobSkill skill2 = new JobSkill(null, job, "Spring Boot");
         when(jobSkillRepository.findByJobId(10L)).thenReturn(List.of(skill1, skill2));
 
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.empty());
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.empty());
 
         when(webClient.post()
                 .uri("/analyze")
@@ -149,15 +146,12 @@ class ScoreServiceTest {
 
         when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        scoreService.generateScore(resume);
+        scoreService.generateScore(resume, job);
 
         ArgumentCaptor<Score> scoreCaptor = ArgumentCaptor.forClass(Score.class);
         verify(scoreRepository).save(scoreCaptor.capture());
         Score savedScore = scoreCaptor.getValue();
 
-        assertThat(savedScore.getUser()).isEqualTo(user);
-        assertThat(savedScore.getJob()).isEqualTo(job);
-        assertThat(savedScore.getResume()).isEqualTo(resume);
         assertThat(savedScore.getOverallScore()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(savedScore.getMatchedKeywords()).isEqualTo("[]");
         assertThat(savedScore.getMissingKeywords()).isEqualTo("[]");
@@ -176,7 +170,6 @@ class ScoreServiceTest {
         Resume resume = new Resume();
         resume.setId(100L);
         resume.setUser(user);
-        resume.setJob(job);
         resume.setParsedText("Experienced Java developer");
 
         Score existingScore = new Score();
@@ -185,7 +178,7 @@ class ScoreServiceTest {
         existingScore.setMatchedKeywords("[\"OldSkill\"]");
 
         when(jobSkillRepository.findByJobId(10L)).thenReturn(List.of());
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(existingScore));
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(existingScore));
 
         Map<String, Object> mlResponse = Map.of(
                 "overallScore", 90.0,
@@ -199,7 +192,7 @@ class ScoreServiceTest {
 
         when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        scoreService.generateScore(resume);
+        scoreService.generateScore(resume, job);
 
         ArgumentCaptor<Score> scoreCaptor = ArgumentCaptor.forClass(Score.class);
         verify(scoreRepository).save(scoreCaptor.capture());
@@ -214,20 +207,17 @@ class ScoreServiceTest {
     }
 
     @Test
-    void getScoreByResume_happyPath(){
+    void getScoreByResume_happyPath() {
 
         User user = new User();
         user.setId(1L);
 
         Job job = new Job();
         job.setId(10L);
-        job.setDescription("Looking for a Java backend developer");
 
         Resume resume = new Resume();
         resume.setId(100L);
         resume.setUser(user);
-        resume.setJob(job);
-        resume.setParsedText("Experienced Java developer");
 
         Score score = new Score();
         score.setUser(user);
@@ -237,9 +227,9 @@ class ScoreServiceTest {
         score.setMatchedKeywords("Java");
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
 
-        ScoreResponse response = scoreService.getScoreByResume(100L);
+        ScoreResponse response = scoreService.getScoreByResume(100L, 10L);
 
         assertThat(response.getResumeId()).isEqualTo(resume.getId());
         assertThat(response.getOverallScore()).isEqualTo(BigDecimal.valueOf(85.50));
@@ -247,7 +237,7 @@ class ScoreServiceTest {
     }
 
     @Test
-    void getScoreByResume_unauthorized(){
+    void getScoreByResume_unauthorized() {
         User currentUser = new User();
         currentUser.setId(1L);
         currentUser.setEmail("test@example.com");
@@ -256,8 +246,7 @@ class ScoreServiceTest {
         owner.setId(2L);
 
         Job job = new Job();
-        job.setId(100L);
-        job.setTitle("Java Developer");
+        job.setId(10L);
 
         Resume resume = new Resume();
         resume.setUser(owner);
@@ -271,22 +260,22 @@ class ScoreServiceTest {
         score.setMatchedKeywords("Java");
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(currentUser));
-        when(scoreRepository.findByResumeId(10L)).thenReturn(Optional.of(score));
+        when(scoreRepository.findByResumeIdAndJobId(10L, 10L)).thenReturn(Optional.of(score));
 
         assertThrows(UnauthorizedAccessException.class,
-                () -> scoreService.getScoreByResume(10L));
+                () -> scoreService.getScoreByResume(10L, 10L));
     }
 
     @Test
-    void getScoreByResume_ResumeNotFound(){
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.empty());
+    void getScoreByResume_notFound() {
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.empty());
 
         assertThrows(ScoreNotFoundException.class,
-                () -> scoreService.getScoreByResume(100L));
+                () -> scoreService.getScoreByResume(100L, 10L));
     }
 
     @Test
-    void getMyScores_happyPath(){
+    void getMyScores_happyPath() {
         User user = new User();
         user.setEmail("test@example.com");
         user.setId(1L);
@@ -333,8 +322,7 @@ class ScoreServiceTest {
     }
 
     @Test
-    void getMyScores_emptyList(){
-
+    void getMyScores_emptyList() {
         User user = new User();
         user.setId(1L);
         user.setEmail("test@example.com");

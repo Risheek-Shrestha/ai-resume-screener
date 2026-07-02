@@ -267,7 +267,6 @@ class JobRepositoryTest {
 
         Resume resume = new Resume();
         resume.setUser(user);
-        resume.setJob(job);
         resume.setResumeName("Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("application/pdf");

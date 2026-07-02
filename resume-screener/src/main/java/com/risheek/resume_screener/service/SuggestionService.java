@@ -8,6 +8,7 @@ import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.Score;
+import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.ScoreNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
@@ -15,11 +16,10 @@ import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
 import com.risheek.resume_screener.repository.ScoreRepository;
-import com.risheek.resume_screener.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,7 @@ public class SuggestionService {
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
-    public SuggestionResponse getImprovementSuggestions(Long resumeId) {
+    public SuggestionResponse getImprovementSuggestions(Long resumeId, Long jobId) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         Resume resume = resumeRepository.findById(resumeId)
@@ -60,19 +60,21 @@ public class SuggestionService {
             throw new UnauthorizedAccessException("You are not allowed to view this resume");
         }
 
-        Score score = scoreRepository.findByResumeId(resumeId)
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new JobNotFoundException("Job not found"));
+        Score score = scoreRepository.findByResumeIdAndJobId(resumeId, jobId)
                 .orElseThrow(() -> new ScoreNotFoundException("Score not found for resume: " + resumeId));
 
         List<String> matchedKeywords = parseJsonList(score.getMatchedKeywords());
         List<String> missingKeywords = parseJsonList(score.getMissingKeywords());
-        List<String> jobSkills = jobSkillRepository.findByJobId(resume.getJob().getId())
+        List<String> jobSkills = jobSkillRepository.findByJobId(jobId)
                 .stream().map(JobSkill::getSkillName).toList();
 
         Map<String, Object> mlRequest = Map.of(
                 "resumeText", resume.getParsedText(),
                 "jobSkills", jobSkills,
-                "jobDescription", resume.getJob().getDescription(),
-                "jobTitle", resume.getJob().getTitle(),
+                "jobDescription", job.getDescription(),
+                "jobTitle", job.getTitle(),
                 "overallScore", score.getOverallScore().doubleValue(),
                 "matchedKeywords", matchedKeywords,
                 "missingKeywords", missingKeywords
@@ -96,7 +98,6 @@ public class SuggestionService {
                     parseList(response.get("suggestedLearningPaths")),
                     parseList(response.get("resumeImprovementTips"))
             );
-
         } catch (Exception e) {
             return new SuggestionResponse(
                     resumeId,
@@ -112,7 +113,7 @@ public class SuggestionService {
         }
     }
 
-    public List<JobSuggestionResponse> getSuggestedJobs(Long resumeId) {
+    public List<JobSuggestionResponse> getSuggestedJobs(Long resumeId , Long jobId) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
         Resume resume = resumeRepository.findById(resumeId)
@@ -122,7 +123,7 @@ public class SuggestionService {
             throw new UnauthorizedAccessException("You are not allowed to view this resume");
         }
 
-        Score score = scoreRepository.findByResumeId(resumeId)
+        Score score = scoreRepository.findByResumeIdAndJobId(resumeId, jobId)
                 .orElseThrow(() -> new ScoreNotFoundException("Score not found for resume: " + resumeId));
 
         List<String> resumeSkills = parseJsonList(score.getMatchedKeywords());
@@ -173,10 +174,9 @@ public class SuggestionService {
                             (String) r.get("whyMatch")
                     ))
                     .toList();
-
         } catch (Exception e) {
             return allJobs.stream()
-                    .map(job -> fallbackJobMatch(job, resumeSkills))
+                    .map(j -> fallbackJobMatch(j, resumeSkills))
                     .filter(r -> r.getMatchPercentage() > 0)
                     .sorted((a, b) -> Double.compare(b.getMatchPercentage(), a.getMatchPercentage()))
                     .limit(5)
@@ -187,14 +187,12 @@ public class SuggestionService {
     private JobSuggestionResponse fallbackJobMatch(Job job, List<String> resumeSkills) {
         List<String> required = jobSkillRepository.findByJobId(job.getId())
                 .stream().map(JobSkill::getSkillName).toList();
-
         List<String> matched = resumeSkills.stream()
                 .filter(s -> required.stream().anyMatch(r -> r.equalsIgnoreCase(s)))
                 .toList();
         List<String> missing = required.stream()
                 .filter(r -> resumeSkills.stream().noneMatch(s -> s.equalsIgnoreCase(r)))
                 .toList();
-
         double matchPct = required.isEmpty() ? 0 :
                 Math.round((matched.size() / (double) required.size()) * 10000.0) / 100.0;
 
@@ -217,5 +215,5 @@ public class SuggestionService {
     private List<String> parseList(Object obj) {
         if (obj instanceof List) return (List<String>) obj;
         return new ArrayList<>();
-    }   
+    }
 }

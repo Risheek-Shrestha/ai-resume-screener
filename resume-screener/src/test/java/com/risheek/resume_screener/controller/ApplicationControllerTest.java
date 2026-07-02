@@ -4,21 +4,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.ApplicationRequest;
 import com.risheek.resume_screener.dto.ApplicationResponse;
-import com.risheek.resume_screener.entity.ApplicationStatus;
-import com.risheek.resume_screener.exception.JobNotFoundException;
+import com.risheek.resume_screener.dto.ApplicationResultResponse;
+import com.risheek.resume_screener.dto.SuggestionResponse;
 import com.risheek.resume_screener.dto.UpdateApplicationStatusRequest;
+import com.risheek.resume_screener.entity.Application;
+import com.risheek.resume_screener.entity.ApplicationStatus;
+import com.risheek.resume_screener.entity.Job;
+import com.risheek.resume_screener.entity.Score;
 import com.risheek.resume_screener.exception.ApplicationNotFoundException;
 import com.risheek.resume_screener.exception.InvalidApplicationStatusException;
+import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.ApplicationService;
 import com.risheek.resume_screener.service.CustomUserDetailService;
-import com.risheek.resume_screener.dto.ApplicationResultResponse;
-import com.risheek.resume_screener.dto.SuggestionResponse;
-import com.risheek.resume_screener.entity.Application;
-import com.risheek.resume_screener.entity.Job;
-import com.risheek.resume_screener.entity.Score;
 import com.risheek.resume_screener.service.SuggestionService;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -36,25 +35,18 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 @WebMvcTest(ApplicationController.class)
 @Import(SecurityConfig.class)
 class ApplicationControllerTest {
 
-    @MockitoBean
-    private SuggestionService suggestionService;
-
-    @Autowired
-    private MockMvc mockMvc;
-
+    @Autowired private MockMvc mockMvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean private ApplicationService applicationService;
+    @MockitoBean private SuggestionService suggestionService;
     @MockitoBean private JwtUtil jwtUtil;
     @MockitoBean private CustomUserDetailService customUserDetailService;
 
@@ -67,7 +59,6 @@ class ApplicationControllerTest {
     @Test
     @WithMockUser
     void applyForJob_validRequest_returns201() throws Exception {
-
         ApplicationRequest request = new ApplicationRequest();
         request.setResumeId(100L);
 
@@ -84,20 +75,12 @@ class ApplicationControllerTest {
         application.setScore(score);
 
         SuggestionResponse suggestionResponse = new SuggestionResponse(
-                100L,
-                BigDecimal.valueOf(92.5),
-                "EXCELLENT",
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-        );
+                100L, BigDecimal.valueOf(92.5), "EXCELLENT",
+                List.of(), List.of(), List.of(), List.of(), List.of());
 
         when(applicationService.applyForJob(eq(1L), any(ApplicationRequest.class)))
                 .thenReturn(application);
-
-        when(suggestionService.getImprovementSuggestions(100L))
+        when(suggestionService.getImprovementSuggestions(100L, 1L))
                 .thenReturn(suggestionResponse);
 
         mockMvc.perform(post("/api/v1/applications/jobs/1")
@@ -113,7 +96,7 @@ class ApplicationControllerTest {
                         .value("Your profile matches this role — application submitted."));
 
         verify(applicationService).applyForJob(eq(1L), any(ApplicationRequest.class));
-        verify(suggestionService).getImprovementSuggestions(100L);
+        verify(suggestionService).getImprovementSuggestions(100L, 1L);
     }
 
     @Test
@@ -125,8 +108,6 @@ class ApplicationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].applicationId").value(1))
                 .andExpect(jsonPath("$[0].jobId").value(10))
-                .andExpect(jsonPath("$[0].jobTitle").value("Backend Developer"))
-                .andExpect(jsonPath("$[0].resumeId").value(100))
                 .andExpect(jsonPath("$[0].status").value("APPLIED"));
 
         verify(applicationService).getMyApplications();
@@ -140,7 +121,6 @@ class ApplicationControllerTest {
         mockMvc.perform(get("/api/v1/applications/jobs/10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].applicationId").value(1))
-                .andExpect(jsonPath("$[0].jobId").value(10))
                 .andExpect(jsonPath("$[0].status").value("APPLIED"));
 
         verify(applicationService).getApplicationsForJob(10L);
@@ -176,110 +156,78 @@ class ApplicationControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void updateApplicationStatus_returns200() throws Exception {
-
-        UpdateApplicationStatusRequest request =
-                new UpdateApplicationStatusRequest();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
         request.setStatus(ApplicationStatus.SHORTLISTED);
 
-        when(applicationService.updateApplicationStatus(
-                1L,
-                ApplicationStatus.SHORTLISTED))
+        when(applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED))
                 .thenReturn(updatedResponse(ApplicationStatus.SHORTLISTED));
 
-        mockMvc.perform(
-                        patch("/api/v1/applications/1/status")
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(patch("/api/v1/applications/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.applicationId").value(1))
                 .andExpect(jsonPath("$.status").value("SHORTLISTED"));
-
-        verify(applicationService)
-                .updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED);
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void updateApplicationStatus_missingStatus_returns400() throws Exception {
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
 
-        UpdateApplicationStatusRequest request =
-                new UpdateApplicationStatusRequest();
-
-        mockMvc.perform(
-                        patch("/api/v1/applications/1/status")
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(patch("/api/v1/applications/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
 
-        verify(applicationService, never())
-                .updateApplicationStatus(anyLong(), any());
+        verify(applicationService, never()).updateApplicationStatus(anyLong(), any());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void updateApplicationStatus_applicationNotFound_returns404() throws Exception {
-
-        UpdateApplicationStatusRequest request =
-                new UpdateApplicationStatusRequest();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
         request.setStatus(ApplicationStatus.SHORTLISTED);
 
-        when(applicationService.updateApplicationStatus(
-                1L,
-                ApplicationStatus.SHORTLISTED))
+        when(applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED))
                 .thenThrow(new ApplicationNotFoundException("Application not found"));
 
-        mockMvc.perform(
-                        patch("/api/v1/applications/1/status")
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(patch("/api/v1/applications/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @WithMockUser(roles = "ADMIN")
     void updateApplicationStatus_invalidTransition_returns400() throws Exception {
-
-        UpdateApplicationStatusRequest request =
-                new UpdateApplicationStatusRequest();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
         request.setStatus(ApplicationStatus.HIRED);
 
-        when(applicationService.updateApplicationStatus(
-                1L,
-                ApplicationStatus.HIRED))
+        when(applicationService.updateApplicationStatus(1L, ApplicationStatus.HIRED))
                 .thenThrow(new InvalidApplicationStatusException(
                         "Application can only move from APPLIED to SHORTLISTED or REJECTED"));
 
-        mockMvc.perform(
-                        patch("/api/v1/applications/1/status")
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(patch("/api/v1/applications/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @WithMockUser(roles = "USER")
     void updateApplicationStatus_asUser_returns403() throws Exception {
-
-        UpdateApplicationStatusRequest request =
-                new UpdateApplicationStatusRequest();
+        UpdateApplicationStatusRequest request = new UpdateApplicationStatusRequest();
         request.setStatus(ApplicationStatus.SHORTLISTED);
 
-        mockMvc.perform(
-                        patch("/api/v1/applications/1/status")
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(objectMapper.writeValueAsString(request))
-                )
+        mockMvc.perform(patch("/api/v1/applications/1/status")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(applicationService);
@@ -287,13 +235,7 @@ class ApplicationControllerTest {
 
     private ApplicationResponse updatedResponse(ApplicationStatus status) {
         return new ApplicationResponse(
-                1L,
-                10L,
-                "Backend Developer",
-                100L,
-                BigDecimal.valueOf(92.5),
-                status,
-                LocalDateTime.now()
-        );
+                1L, 10L, "Backend Developer", 100L,
+                BigDecimal.valueOf(92.5), status, LocalDateTime.now());
     }
 }

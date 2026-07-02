@@ -18,33 +18,23 @@ public class ReportController {
     private final ReportService reportService;
     private final PdfReportService pdfReportService;
 
-    public ReportController(
-            ReportService reportService, PdfReportService pdfReportService) {
+    public ReportController(ReportService reportService, PdfReportService pdfReportService) {
         this.reportService = reportService;
         this.pdfReportService = pdfReportService;
     }
 
-    @GetMapping("/resume/{resumeId}")
+    @GetMapping("/resume/{resumeId}/job/{jobId}")
     public ResponseEntity<ReportResponse> getReport(
-            @PathVariable Long resumeId) {
-
-        return ResponseEntity.ok(
-                reportService.generateReport(resumeId)
-        );
+            @PathVariable Long resumeId, @PathVariable Long jobId) {
+        return ResponseEntity.ok(reportService.generateReport(resumeId, jobId));
     }
 
-    @GetMapping("/resume/{resumeId}/pdf")
+    @GetMapping("/resume/{resumeId}/job/{jobId}/pdf")
     public ResponseEntity<byte[]> getPdfReport(
-            @PathVariable Long resumeId) {
-
-        byte[] pdf =
-                pdfReportService.generatePdf(resumeId);
-
+            @PathVariable Long resumeId, @PathVariable Long jobId) {
+        byte[] pdf = pdfReportService.generatePdf(resumeId, jobId);
         return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=resume-report.pdf"
-                )
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=resume-report.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

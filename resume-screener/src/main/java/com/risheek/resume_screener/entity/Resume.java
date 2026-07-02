@@ -27,10 +27,6 @@ public class Resume {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "job_id", nullable = false)
-    private Job job;
-
     @Column(nullable = false)
     private String fileName;
 

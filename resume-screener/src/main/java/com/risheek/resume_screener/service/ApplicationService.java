@@ -3,6 +3,7 @@ package com.risheek.resume_screener.service;
 import com.risheek.resume_screener.dto.ApplicationNotificationEvent;
 import com.risheek.resume_screener.dto.ApplicationRequest;
 import com.risheek.resume_screener.dto.ApplicationResponse;
+import com.risheek.resume_screener.service.ScoreService;
 import com.risheek.resume_screener.entity.*;
 import com.risheek.resume_screener.exception.*;
 import com.risheek.resume_screener.repository.*;
@@ -21,15 +22,17 @@ public class ApplicationService {
     private final ResumeRepository resumeRepository;
     private final JobRepository jobRepository;
     private final ScoreRepository scoreRepository;
+    private final ScoreService scoreService;
     private final UserRepository userRepository;
     private final RabbitTemplate rabbitTemplate;
 
     public ApplicationService(ApplicationRepository applicationRepository, ResumeRepository resumeRepository,
-                              JobRepository jobRepository, ScoreRepository scoreRepository, UserRepository userRepository,
+                              JobRepository jobRepository, ScoreService scoreService ,ScoreRepository scoreRepository, UserRepository userRepository,
                               RabbitTemplate rabbitTemplate) {
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
         this.jobRepository = jobRepository;
+        this.scoreService = scoreService;
         this.scoreRepository = scoreRepository;
         this.userRepository = userRepository;
         this.rabbitTemplate = rabbitTemplate;
@@ -47,10 +50,6 @@ public class ApplicationService {
         Resume resume = resumeRepository.findByIdAndUserId(request.getResumeId(), currentUser.getId())
                 .orElseThrow(() -> new UnauthorizedAccessException("Resume not found or does not belong to user"));
 
-        if (!resume.getJob().getId().equals(currentJob.getId())) {
-            throw new UnauthorizedAccessException("Resume does not belong to the specified job");
-        }
-
         if (currentJob.getApplicationStartsAt() != null && currentJob.getApplicationDeadline() != null) {
             if (currentJob.getApplicationStartsAt().isAfter(java.time.LocalDateTime.now())) {
                 throw new ApplicationNotStartedException("Applications are not open for this job");
@@ -63,7 +62,10 @@ public class ApplicationService {
             throw new DuplicateApplicationException("User has already applied for this job");
         }
 
-        Score score = scoreRepository.findByResumeId(resume.getId())
+        if (scoreRepository.findByResumeIdAndJobId(resume.getId(), currentJob.getId()).isEmpty()) {
+            scoreService.generateScore(resume, currentJob);
+        }
+        Score score = scoreRepository.findByResumeIdAndJobId(resume.getId(), currentJob.getId())
                 .orElseThrow(() -> new ScoreNotFoundException("Score not found for the resume"));
 
         Application application = new Application();

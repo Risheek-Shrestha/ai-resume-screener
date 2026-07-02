@@ -23,8 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ResumeRepositoryTest {
 
     @Container
-    static PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:16-alpine");
+    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
@@ -33,42 +32,25 @@ class ResumeRepositoryTest {
         registry.add("spring.datasource.password", postgres::getPassword);
     }
 
-    @Autowired
-    private ResumeRepository resumeRepository;
-    @Autowired
-    private JobRepository jobRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private TestEntityManager entityManager;
+    @Autowired private ResumeRepository resumeRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private TestEntityManager entityManager;
 
-    @Test
-    void shouldSaveandRetrieveResume(){
-
+    private User savedUser() {
         User user = new User();
-
         user.setUsername("Risheek");
         user.setEmail("risheekshrestha@gmail.com");
         user.setPasswordHash("risheek@1234");
         user.setRole(User.Role.USER);
+        return userRepository.save(user);
+    }
 
-        User currentUser =  userRepository.save(user);
-
-        Job job = new Job();
-
-        job.setTitle("DevOps Engineer");
-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
-        job.setJobType(Job.JobType.FULL_TIME);
-        job.setExperienceLevel(Job.ExperienceLevel.MID);
-        job.setUser(currentUser);
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-
-        Job currentJob = jobRepository.save(job);
+    @Test
+    void shouldSaveAndRetrieveResume() {
+        User currentUser = savedUser();
 
         Resume resume = new Resume();
         resume.setUser(currentUser);
-        resume.setJob(currentJob);
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
@@ -85,51 +67,27 @@ class ResumeRepositoryTest {
         assertEquals("application/pdf", found.get().getFileType());
         assertArrayEquals("test content".getBytes(), found.get().getFileData());
         assertEquals(currentUser.getId(), found.get().getUser().getId());
-        assertEquals(currentJob.getId(), found.get().getJob().getId());
     }
 
     @Test
-    void shouldFindResumeByUserId(){
-        User user = new User();
-
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
-
-        Job job = new Job();
-
-        job.setTitle("DevOps Engineer");
-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
-        job.setJobType(Job.JobType.FULL_TIME);
-        job.setExperienceLevel(Job.ExperienceLevel.MID);
-        job.setUser(currentUser);
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-
-        Job currentJob = jobRepository.save(job);
+    void shouldFindResumeByUserId() {
+        User currentUser = savedUser();
 
         Resume resume1 = new Resume();
         resume1.setUser(currentUser);
-        resume1.setJob(currentJob);
         resume1.setFileName("test-resume.pdf");
         resume1.setFileType("application/pdf");
         resume1.setFileData("test content".getBytes());
         resume1.setResumeName("Backend Developer Resume");
-
-        Resume savedResume1 = resumeRepository.save(resume1);
+        resumeRepository.save(resume1);
 
         Resume resume2 = new Resume();
         resume2.setUser(currentUser);
-        resume2.setJob(currentJob);
         resume2.setFileName("test-resume2.pdf");
-        resume2.setFileType("application2/pdf");
+        resume2.setFileType("application/pdf");
         resume2.setFileData("test content".getBytes());
-        resume2.setResumeName("Backend Developer Resume");
-
-        Resume savedResume2 = resumeRepository.save(resume2);
+        resume2.setResumeName("Backend Developer Resume 2");
+        resumeRepository.save(resume2);
 
         entityManager.flush();
         entityManager.clear();
@@ -157,19 +115,8 @@ class ResumeRepositoryTest {
         userB.setRole(User.Role.USER);
         User savedUserB = userRepository.save(userB);
 
-        Job job = new Job();
-        job.setTitle("DevOps Engineer");
-        job.setDescription("...");
-        job.setJobType(Job.JobType.FULL_TIME);
-        job.setExperienceLevel(Job.ExperienceLevel.MID);
-        job.setUser(savedUserA);
-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
-        Job savedJob = jobRepository.save(job);
-
         Resume resume = new Resume();
         resume.setUser(savedUserA);
-        resume.setJob(savedJob);
         resume.setFileName("test-resume.pdf");
         resume.setFileType("application/pdf");
         resume.setFileData("test content".getBytes());
@@ -183,5 +130,4 @@ class ResumeRepositoryTest {
 
         assertTrue(found.isEmpty());
     }
-
 }

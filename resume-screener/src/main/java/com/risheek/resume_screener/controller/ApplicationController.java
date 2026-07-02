@@ -3,6 +3,7 @@ package com.risheek.resume_screener.controller;
 import com.risheek.resume_screener.dto.*;
 import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.ApplicationStatus;
+import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.service.ApplicationService;
 import com.risheek.resume_screener.service.SuggestionService;
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ public class ApplicationController {
 
         Application application = applicationService.applyForJob(jobId, request);
         SuggestionResponse suggestions =
-                suggestionService.getImprovementSuggestions(request.getResumeId());
+                suggestionService.getImprovementSuggestions(request.getResumeId(), jobId);
 
         String message = resolveMessage(application.getStatus(), application.getScore().getOverallScore());
 
@@ -52,30 +53,21 @@ public class ApplicationController {
     @GetMapping("/jobs/{jobId}")
     public ResponseEntity<List<ApplicationResponse>> getApplicationsForJob(
             @PathVariable Long jobId) {
-
-        return ResponseEntity.ok(
-                applicationService.getApplicationsForJob(jobId));
+        return ResponseEntity.ok(applicationService.getApplicationsForJob(jobId));
     }
 
     @GetMapping("/jobs/{jobId}/accepted")
     public ResponseEntity<List<ApplicationResponse>> getAcceptedApplicationsForJob(
             @PathVariable Long jobId) {
-
-        return ResponseEntity.ok(
-                applicationService.getAcceptedApplicationsForJob(jobId));
+        return ResponseEntity.ok(applicationService.getAcceptedApplicationsForJob(jobId));
     }
 
     @PatchMapping("/{applicationId}/status")
     public ResponseEntity<ApplicationResponse> updateApplicationStatus(
             @PathVariable Long applicationId,
             @Valid @RequestBody UpdateApplicationStatusRequest request) {
-
         return ResponseEntity.ok(
-                applicationService.updateApplicationStatus(
-                        applicationId,
-                        request.getStatus()
-                )
-        );
+                applicationService.updateApplicationStatus(applicationId, request.getStatus()));
     }
 
     private String resolveMessage(ApplicationStatus status, BigDecimal score) {

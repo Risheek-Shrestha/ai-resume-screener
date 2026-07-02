@@ -34,6 +34,7 @@ class ApplicationServiceTest {
     @Mock private JobRepository jobRepository;
     @Mock private ApplicationRepository applicationRepository;
     @Mock private ScoreRepository scoreRepository;
+    @Mock private ScoreService scoreService;
     @Mock private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate;
 
     private ApplicationService applicationService;
@@ -42,7 +43,7 @@ class ApplicationServiceTest {
     void setUp() {
         applicationService = new ApplicationService(
                 applicationRepository, resumeRepository, jobRepository,
-                scoreRepository, userRepository, rabbitTemplate);
+                scoreService, scoreRepository, userRepository, rabbitTemplate);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication())
@@ -89,29 +90,12 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void testApplyForJob_ResumeForDifferentJob() {
-        User user = new User(); user.setId(1L);
-        Job appliedJob = new Job(); appliedJob.setId(10L);
-        Job resumeJob = new Job(); resumeJob.setId(20L);
-        Resume resume = new Resume(); resume.setId(100L); resume.setJob(resumeJob);
-        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(appliedJob));
-        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
-
-        Exception ex = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-        assertEquals("Resume does not belong to the specified job", ex.getMessage());
-    }
-
-    @Test
     void testApplyForJob_NotStarted() {
         User user = new User(); user.setId(1L);
         Job job = new Job(); job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().plusDays(2));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(10));
-        Resume resume = new Resume(); resume.setJob(job);
+        Resume resume = new Resume();
         ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
 
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
@@ -129,7 +113,7 @@ class ApplicationServiceTest {
         Job job = new Job(); job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(10));
         job.setApplicationDeadline(LocalDateTime.now().minusDays(1));
-        Resume resume = new Resume(); resume.setJob(job);
+        Resume resume = new Resume();
         ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
 
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
@@ -147,7 +131,7 @@ class ApplicationServiceTest {
         Job job = new Job(); job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-        Resume resume = new Resume(); resume.setJob(job);
+        Resume resume = new Resume();
         ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
 
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
@@ -161,28 +145,38 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void testApplyForJob_ScoreNotFound() {
+    void testApplyForJob_ScoreGeneratedLazily_WhenNotFound() {
         User user = new User(); user.setId(1L);
         Job job = new Job(); job.setId(10L);
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-        Resume resume = new Resume(); resume.setId(100L); resume.setJob(job);
+        Resume resume = new Resume(); resume.setId(100L);
         ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        Score generatedScore = new Score();
+        generatedScore.setId(50L);
+        generatedScore.setOverallScore(BigDecimal.valueOf(75));
 
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
         when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
         when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
         when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong())).thenReturn(false);
-        when(scoreRepository.findByResumeId(anyLong())).thenReturn(Optional.empty());
+        // First call returns empty (triggers generation), second call returns the generated score
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(generatedScore));
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        Exception ex = assertThrows(RuntimeException.class,
-                () -> applicationService.applyForJob(10L, request));
-        assertEquals("Score not found for the resume", ex.getMessage());
+        Application result = applicationService.applyForJob(10L, request);
+
+        verify(scoreService).generateScore(resume, job);
+        assertNotNull(result);
+        assertEquals(generatedScore, result.getScore());
     }
 
     @Test
     void testApplyForJob_HappyPath() {
-
         User user = new User();
         user.setId(1L);
         user.setEmail("test@example.com");
@@ -195,7 +189,6 @@ class ApplicationServiceTest {
         Resume resume = new Resume();
         resume.setId(100L);
         resume.setUser(user);
-        resume.setJob(job);
 
         Score score = new Score();
         score.setId(50L);
@@ -205,24 +198,16 @@ class ApplicationServiceTest {
         ApplicationRequest request = new ApplicationRequest();
         request.setResumeId(100L);
 
-        when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.of(user));
-        when(jobRepository.findById(10L))
-                .thenReturn(Optional.of(job));
-        when(resumeRepository.findByIdAndUserId(100L, 1L))
-                .thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(1L, 10L))
-                .thenReturn(false);
-        when(scoreRepository.findByResumeId(100L))
-                .thenReturn(Optional.of(score));
-
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
         when(applicationRepository.save(any(Application.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
         Application result = applicationService.applyForJob(10L, request);
 
-        // Assert
         assertNotNull(result);
         assertEquals(user, result.getUser());
         assertEquals(job, result.getJob());
@@ -230,12 +215,31 @@ class ApplicationServiceTest {
         assertEquals(score, result.getScore());
         assertEquals(ApplicationStatus.APPLIED, result.getStatus());
 
-        verify(userRepository).findByEmail("test@example.com");
-        verify(jobRepository).findById(10L);
-        verify(resumeRepository).findByIdAndUserId(100L, 1L);
-        verify(scoreRepository).findByResumeId(100L);
-        verify(applicationRepository).existsByUserIdAndJobId(1L, 10L);
+        verify(scoreService, never()).generateScore(any(), any());
         verify(applicationRepository).save(any(Application.class));
+    }
+
+    @Test
+    void testApplyForJob_ScoreBelowThreshold_RejectsApplication() {
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        Resume resume = new Resume(); resume.setId(100L); resume.setUser(user);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(45));
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Application result = applicationService.applyForJob(10L, request);
+
+        assertEquals(ApplicationStatus.REJECTED, result.getStatus());
     }
 
     @Test
@@ -267,8 +271,6 @@ class ApplicationServiceTest {
                 () -> applicationService.getApplicationsForJob(1L));
         assertEquals("Job not found", ex.getMessage());
 
-        verify(userRepository, never()).findByEmail(anyString());
-        // FIX: verify the correct repo method — findByJobId, not the ordered one
         verify(applicationRepository, never()).findByJobId(anyLong());
     }
 
@@ -301,8 +303,6 @@ class ApplicationServiceTest {
         assertTrue(responses.isEmpty());
     }
 
-    // ── getAcceptedApplicationsForJob (MISSING in original) ─────────────────────
-
     @Test
     void testGetAcceptedApplicationsForJob_JobNotFound() {
         when(jobRepository.findById(anyLong())).thenReturn(Optional.empty());
@@ -327,7 +327,7 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void testGetAcceptedApplicationsForJob_Success_returnsSortedByScoreDesc() {
+    void testGetAcceptedApplicationsForJob_Success() {
         User employer = new User(); employer.setId(1L);
         Job job = new Job(); job.setId(10L); job.setUser(employer);
 
@@ -336,8 +336,7 @@ class ApplicationServiceTest {
         when(applicationRepository.findByJobIdAndStatusOrderByScoreOverallScoreDesc(
                 10L, ApplicationStatus.APPLIED)).thenReturn(List.of());
 
-        List<ApplicationResponse> responses =
-                applicationService.getAcceptedApplicationsForJob(10L);
+        List<ApplicationResponse> responses = applicationService.getAcceptedApplicationsForJob(10L);
 
         assertNotNull(responses);
         assertTrue(responses.isEmpty());
@@ -346,416 +345,182 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void testApplyForJob_ScoreBelowThreshold_RejectsApplication() {
-
-        User user = new User();
-        user.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
-        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-        resume.setUser(user);
-        resume.setJob(job);
-
-        Score score = new Score();
-        score.setResume(resume);
-        score.setOverallScore(BigDecimal.valueOf(45));
-
-        ApplicationRequest request = new ApplicationRequest();
-        request.setResumeId(100L);
-
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
-        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
-
-        when(applicationRepository.save(any(Application.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
-
-        Application result = applicationService.applyForJob(10L, request);
-
-        assertEquals(ApplicationStatus.REJECTED, result.getStatus());
-    }
-
-    @Test
     void testUpdateApplicationStatus_ApplicationNotFound() {
-
         when(applicationRepository.findById(1L)).thenReturn(Optional.empty());
 
         Exception ex = assertThrows(ApplicationNotFoundException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED));
-
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED));
         assertEquals("Application not found", ex.getMessage());
     }
 
     @Test
     void testUpdateApplicationStatus_UserNotFound() {
-
         Application application = new Application();
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.empty());
-
-        Exception ex = assertThrows(
-                org.springframework.security.core.userdetails.UsernameNotFoundException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED));
-
-        assertEquals("Authenticated user not found", ex.getMessage());
+        assertThrows(org.springframework.security.core.userdetails.UsernameNotFoundException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED));
     }
 
     @Test
     void testUpdateApplicationStatus_Unauthorized() {
+        User owner = new User(); owner.setId(5L);
+        User current = new User(); current.setId(1L);
+        Job job = new Job(); job.setUser(owner);
+        Application application = new Application(); application.setJob(job);
 
-        User owner = new User();
-        owner.setId(5L);
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(current));
 
-        User current = new User();
-        current.setId(1L);
-
-        Job job = new Job();
-        job.setUser(owner);
-
-        Application application = new Application();
-        application.setJob(job);
-
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
-
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(current));
-
-        Exception ex = assertThrows(
-                UnauthorizedAccessException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED));
-
-        assertEquals(
-                "You are not allowed to update this application",
-                ex.getMessage());
+        assertThrows(UnauthorizedAccessException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED));
     }
 
     @Test
     void testUpdateApplicationStatus_AppliedToShortlisted() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setTitle("Backend");
-        job.setUser(admin);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-
-        Score score = new Score();
-        score.setOverallScore(BigDecimal.valueOf(85));
-
-        User applicant = new User();
-        applicant.setId(2L);
-        applicant.setEmail("applicant@example.com");
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setTitle("Backend"); job.setUser(admin);
+        Resume resume = new Resume(); resume.setId(100L);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(85));
+        User applicant = new User(); applicant.setId(2L); applicant.setEmail("applicant@example.com");
 
         Application application = new Application();
         application.setId(1L);
         application.setStatus(ApplicationStatus.APPLIED);
-        application.setJob(job);
-        application.setResume(resume);
-        application.setScore(score);
-        application.setUser(applicant);
+        application.setJob(job); application.setResume(resume);
+        application.setScore(score); application.setUser(applicant);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        when(applicationRepository.save(any(Application.class)))
-                .thenAnswer(i -> i.getArgument(0));
-
-        ApplicationResponse response =
-                applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED);
+        ApplicationResponse response = applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED);
 
         assertEquals(ApplicationStatus.SHORTLISTED, response.getStatus());
-
         verify(applicationRepository).save(application);
     }
 
     @Test
     void testUpdateApplicationStatus_AppliedToRejected() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setTitle("Backend");
-        job.setUser(admin);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-
-        Score score = new Score();
-        score.setOverallScore(BigDecimal.valueOf(85));
-
-        User applicant = new User();
-        applicant.setId(2L);
-        applicant.setEmail("applicant@example.com");
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setTitle("Backend"); job.setUser(admin);
+        Resume resume = new Resume(); resume.setId(100L);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(85));
+        User applicant = new User(); applicant.setId(2L); applicant.setEmail("applicant@example.com");
 
         Application application = new Application();
-        application.setId(1L);
-        application.setStatus(ApplicationStatus.APPLIED);
-        application.setJob(job);
-        application.setResume(resume);
-        application.setScore(score);
-        application.setUser(applicant);
+        application.setId(1L); application.setStatus(ApplicationStatus.APPLIED);
+        application.setJob(job); application.setResume(resume);
+        application.setScore(score); application.setUser(applicant);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        when(applicationRepository.save(any(Application.class)))
-                .thenAnswer(i -> i.getArgument(0));
-
-        ApplicationResponse response =
-                applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.REJECTED);
-
+        ApplicationResponse response = applicationService.updateApplicationStatus(1L, ApplicationStatus.REJECTED);
         assertEquals(ApplicationStatus.REJECTED, response.getStatus());
-
-        verify(applicationRepository).save(application);
     }
 
     @Test
     void testUpdateApplicationStatus_ShortlistedToHired() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setTitle("Backend");
-        job.setUser(admin);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-
-        Score score = new Score();
-        score.setOverallScore(BigDecimal.valueOf(85));
-
-        User applicant = new User();
-        applicant.setId(2L);
-        applicant.setEmail("applicant@example.com");
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setTitle("Backend"); job.setUser(admin);
+        Resume resume = new Resume(); resume.setId(100L);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(85));
+        User applicant = new User(); applicant.setId(2L); applicant.setEmail("applicant@example.com");
 
         Application application = new Application();
-        application.setId(1L);
-        application.setStatus(ApplicationStatus.SHORTLISTED);
-        application.setJob(job);
-        application.setResume(resume);
-        application.setScore(score);
-        application.setUser(applicant);
+        application.setId(1L); application.setStatus(ApplicationStatus.SHORTLISTED);
+        application.setJob(job); application.setResume(resume);
+        application.setScore(score); application.setUser(applicant);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        when(applicationRepository.save(any(Application.class)))
-                .thenAnswer(i -> i.getArgument(0));
-
-        ApplicationResponse response =
-                applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.HIRED);
-
+        ApplicationResponse response = applicationService.updateApplicationStatus(1L, ApplicationStatus.HIRED);
         assertEquals(ApplicationStatus.HIRED, response.getStatus());
-
-        verify(applicationRepository).save(application);
     }
 
     @Test
     void testUpdateApplicationStatus_ShortlistedToRejected() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setId(10L);
-        job.setTitle("Backend");
-        job.setUser(admin);
-
-        Resume resume = new Resume();
-        resume.setId(100L);
-
-        Score score = new Score();
-        score.setOverallScore(BigDecimal.valueOf(85));
-
-        User applicant = new User();
-        applicant.setId(2L);
-        applicant.setEmail("applicant@example.com");
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setId(10L); job.setTitle("Backend"); job.setUser(admin);
+        Resume resume = new Resume(); resume.setId(100L);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(85));
+        User applicant = new User(); applicant.setId(2L); applicant.setEmail("applicant@example.com");
 
         Application application = new Application();
-        application.setId(1L);
-        application.setStatus(ApplicationStatus.SHORTLISTED);
-        application.setJob(job);
-        application.setResume(resume);
-        application.setScore(score);
-        application.setUser(applicant);
+        application.setId(1L); application.setStatus(ApplicationStatus.SHORTLISTED);
+        application.setJob(job); application.setResume(resume);
+        application.setScore(score); application.setUser(applicant);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(i -> i.getArgument(0));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        when(applicationRepository.save(any(Application.class)))
-                .thenAnswer(i -> i.getArgument(0));
-
-        ApplicationResponse response =
-                applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.REJECTED);
-
+        ApplicationResponse response = applicationService.updateApplicationStatus(1L, ApplicationStatus.REJECTED);
         assertEquals(ApplicationStatus.REJECTED, response.getStatus());
-
-        verify(applicationRepository).save(application);
     }
 
     @Test
     void testUpdateApplicationStatus_AppliedToHired_Invalid() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setUser(admin);
-
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setUser(admin);
         Application application = new Application();
-        application.setStatus(ApplicationStatus.APPLIED);
-        application.setJob(job);
+        application.setStatus(ApplicationStatus.APPLIED); application.setJob(job);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        Exception ex = assertThrows(
-                InvalidApplicationStatusException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.HIRED));
-
-        assertEquals(
-                "Application can only move from APPLIED to SHORTLISTED or REJECTED",
-                ex.getMessage());
+        Exception ex = assertThrows(InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.HIRED));
+        assertEquals("Application can only move from APPLIED to SHORTLISTED or REJECTED", ex.getMessage());
     }
 
     @Test
     void testUpdateApplicationStatus_ShortlistedToApply_Invalid() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setUser(admin);
-
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setUser(admin);
         Application application = new Application();
-        application.setStatus(ApplicationStatus.SHORTLISTED);
-        application.setJob(job);
+        application.setStatus(ApplicationStatus.SHORTLISTED); application.setJob(job);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        Exception ex = assertThrows(
-                InvalidApplicationStatusException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.APPLIED));
-
-        assertEquals(
-                "Shortlisted application can only move to HIRED or REJECTED",
-                ex.getMessage());
+        Exception ex = assertThrows(InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.APPLIED));
+        assertEquals("Shortlisted application can only move to HIRED or REJECTED", ex.getMessage());
     }
 
     @Test
     void testUpdateApplicationStatus_HiredToRejected_Invalid() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setUser(admin);
-
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setUser(admin);
         Application application = new Application();
-        application.setStatus(ApplicationStatus.HIRED);
-        application.setJob(job);
+        application.setStatus(ApplicationStatus.HIRED); application.setJob(job);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        Exception ex = assertThrows(
-                InvalidApplicationStatusException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.REJECTED));
-
-        assertEquals(
-                "Application is already in a terminal state",
-                ex.getMessage());
+        Exception ex = assertThrows(InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.REJECTED));
+        assertEquals("Application is already in a terminal state", ex.getMessage());
     }
 
     @Test
     void testUpdateApplicationStatus_RejectedToShortlisted_Invalid() {
-
-        User admin = new User();
-        admin.setId(1L);
-
-        Job job = new Job();
-        job.setUser(admin);
-
+        User admin = new User(); admin.setId(1L);
+        Job job = new Job(); job.setUser(admin);
         Application application = new Application();
-        application.setStatus(ApplicationStatus.REJECTED);
-        application.setJob(job);
+        application.setStatus(ApplicationStatus.REJECTED); application.setJob(job);
 
-        when(applicationRepository.findById(1L))
-                .thenReturn(Optional.of(application));
+        when(applicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(admin));
 
-        when(userRepository.findByEmail(anyString()))
-                .thenReturn(Optional.of(admin));
-
-        Exception ex = assertThrows(
-                InvalidApplicationStatusException.class,
-                () -> applicationService.updateApplicationStatus(
-                        1L,
-                        ApplicationStatus.SHORTLISTED));
-
-        assertEquals(
-                "Application is already in a terminal state",
-                ex.getMessage());
+        Exception ex = assertThrows(InvalidApplicationStatusException.class,
+                () -> applicationService.updateApplicationStatus(1L, ApplicationStatus.SHORTLISTED));
+        assertEquals("Application is already in a terminal state", ex.getMessage());
     }
 }

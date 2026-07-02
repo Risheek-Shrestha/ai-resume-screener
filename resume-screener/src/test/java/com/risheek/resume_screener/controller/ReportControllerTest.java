@@ -1,6 +1,5 @@
 package com.risheek.resume_screener.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.ReportResponse;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
@@ -11,7 +10,6 @@ import com.risheek.resume_screener.service.ReportService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
-import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -31,57 +29,43 @@ class ReportControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @MockitoBean
-    private ReportService reportService;
-
-    @MockitoBean
-    private PdfReportService pdfReportService;
-
-    @MockitoBean
-    private JwtUtil jwtUtil;
-
-    @MockitoBean
-    private CustomUserDetailService customUserDetailService;
+    @MockitoBean private ReportService reportService;
+    @MockitoBean private PdfReportService pdfReportService;
+    @MockitoBean private JwtUtil jwtUtil;
+    @MockitoBean private CustomUserDetailService customUserDetailService;
 
     @Test
     @WithMockUser
-    void getReport_existingResumeId_returns200() throws Exception {
+    void getReport_existing_returns200() throws Exception {
         ReportResponse response = new ReportResponse(
-                1L, "Strong match", BigDecimal.valueOf(82.5), "HIGH",
+                1L, "Backend Developer", BigDecimal.valueOf(82.5), "EXCELLENT",
                 List.of("Strong Java skills"), List.of("No cloud experience"),
-                List.of("Learn AWS"), "READY");
+                List.of("Learn AWS"), "Interview Ready");
 
-        when(reportService.generateReport(1L)).thenReturn(response);
+        when(reportService.generateReport(1L, 10L)).thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/reports/resume/1"))
+        mockMvc.perform(get("/api/v1/reports/resume/1/job/10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resumeId").value(1));
+                .andExpect(jsonPath("$.resumeId").value(1))
+                .andExpect(jsonPath("$.jobTitle").value("Backend Developer"));
     }
 
     @Test
     @WithMockUser
-    void getReport_nonExistingResumeId_returns404() throws Exception {
-
-        when(reportService.generateReport(999L))
+    void getReport_notFound_returns404() throws Exception {
+        when(reportService.generateReport(999L, 10L))
                 .thenThrow(new ResumeNotFoundException("Resume not found"));
 
-        mockMvc.perform(get("/api/v1/reports/resume/999"))
+        mockMvc.perform(get("/api/v1/reports/resume/999/job/10"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     @WithMockUser
-    void getPdfReport_existingResumeId_returns200WithPdfContentTypeAndHeader()
-            throws Exception {
+    void getPdfReport_existing_returns200WithPdfHeaders() throws Exception {
+        when(pdfReportService.generatePdf(1L, 10L)).thenReturn("dummy pdf".getBytes());
 
-        byte[] pdfBytes = "dummy pdf".getBytes();
-
-        when(pdfReportService.generatePdf(1L))
-                .thenReturn(pdfBytes);
-
-        mockMvc.perform(get("/api/v1/reports/resume/1/pdf"))
+        mockMvc.perform(get("/api/v1/reports/resume/1/job/10/pdf"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType("application/pdf"))
                 .andExpect(header().exists("Content-Disposition"));
@@ -89,12 +73,11 @@ class ReportControllerTest {
 
     @Test
     @WithMockUser
-    void getPdfReport_nonExistingResumeId_returns404() throws Exception {
-
-        when(pdfReportService.generatePdf(999L))
+    void getPdfReport_notFound_returns404() throws Exception {
+        when(pdfReportService.generatePdf(999L, 10L))
                 .thenThrow(new ResumeNotFoundException("Resume not found"));
 
-        mockMvc.perform(get("/api/v1/reports/resume/999/pdf"))
+        mockMvc.perform(get("/api/v1/reports/resume/999/job/10/pdf"))
                 .andExpect(status().isNotFound());
     }
 }

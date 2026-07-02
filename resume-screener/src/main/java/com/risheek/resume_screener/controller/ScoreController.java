@@ -1,7 +1,9 @@
 package com.risheek.resume_screener.controller;
 
 import com.risheek.resume_screener.dto.ScoreResponse;
+import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.service.ScoreService;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,12 +22,10 @@ public class ScoreController {
         this.scoreService = scoreService;
     }
 
-    @GetMapping("/resume/{resumeId}")
+    @GetMapping("/resume/{resumeId}/job/{jobId}")
     public ResponseEntity<ScoreResponse> getScoreByResume(
-            @PathVariable Long resumeId) {
-
-        return ResponseEntity.ok(
-                scoreService.getScoreByResume(resumeId));
+            @PathVariable Long resumeId, @PathVariable Long jobId) {
+        return ResponseEntity.ok(scoreService.getScoreByResume(resumeId, jobId));
     }
 
     @GetMapping("/my-scores")

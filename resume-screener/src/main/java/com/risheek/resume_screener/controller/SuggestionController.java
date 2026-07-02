@@ -18,17 +18,17 @@ public class SuggestionController {
         this.suggestionService = suggestionService;
     }
 
-    @GetMapping("/improve/{resumeId}")
+    @GetMapping("/improve/{resumeId}/job/{jobId}")
     public ResponseEntity<SuggestionResponse> getImprovementSuggestions(
-            @PathVariable Long resumeId) {
+            @PathVariable Long resumeId, @PathVariable Long jobId) {
         return ResponseEntity.ok(
-                suggestionService.getImprovementSuggestions(resumeId));
+                suggestionService.getImprovementSuggestions(resumeId, jobId));
     }
 
-    @GetMapping("/jobs/{resumeId}")
+    @GetMapping("/jobs/{resumeId}/job/{jobId}")
     public ResponseEntity<List<JobSuggestionResponse>> getSuggestedJobs(
-            @PathVariable Long resumeId) {
+            @PathVariable Long resumeId , @PathVariable Long jobId) {
         return ResponseEntity.ok(
-                suggestionService.getSuggestedJobs(resumeId));
+                suggestionService.getSuggestedJobs(resumeId, jobId));
     }
 }

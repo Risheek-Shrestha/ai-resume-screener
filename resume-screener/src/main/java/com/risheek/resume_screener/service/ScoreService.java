@@ -2,10 +2,7 @@ package com.risheek.resume_screener.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.dto.ScoreResponse;
-import com.risheek.resume_screener.entity.JobSkill;
-import com.risheek.resume_screener.entity.Resume;
-import com.risheek.resume_screener.entity.Score;
-import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.entity.*;
 import com.risheek.resume_screener.exception.ScoreNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
@@ -45,9 +42,9 @@ public class ScoreService {
     }
 
     @Transactional
-    public void generateScore(Resume resume) {
+    public Score generateScore(Resume resume, Job job) {
         List<String> jobSkills = jobSkillRepository
-                .findByJobId(resume.getJob().getId())
+                .findByJobId(job.getId())
                 .stream()
                 .map(JobSkill::getSkillName)
                 .toList();
@@ -55,14 +52,14 @@ public class ScoreService {
         Map<String, Object> mlRequest = Map.of(
                 "resumeText", resume.getParsedText(),
                 "jobSkills", jobSkills,
-                "jobDescription", resume.getJob().getDescription()
+                "jobDescription", job.getDescription()
         );
 
-        Score score = scoreRepository.findByResumeId(resume.getId())
-                .orElseGet(() -> buildNewScore(resume));
+        Score score = scoreRepository.findByResumeIdAndJobId(resume.getId(), job.getId())
+                .orElseGet(() -> buildNewScore(resume, job));
 
         score.setUser(resume.getUser());
-        score.setJob(resume.getJob());
+        score.setJob(job);
 
         try {
             Map response = webClient.post()
@@ -86,6 +83,7 @@ public class ScoreService {
         }
 
         scoreRepository.save(score);
+        return score;
     }
 
     private String toJson(Object obj) {
@@ -97,8 +95,8 @@ public class ScoreService {
     }
 
     @Transactional
-    public ScoreResponse getScoreByResume(Long resumeId) {
-        Score score = scoreRepository.findByResumeId(resumeId)
+    public ScoreResponse getScoreByResume(Long resumeId, Long jobId) {
+        Score score = scoreRepository.findByResumeIdAndJobId(resumeId, jobId)
                 .orElseThrow(() -> new ScoreNotFoundException(
                         "Score not found for resume id: " + resumeId));
 
@@ -138,10 +136,10 @@ public class ScoreService {
         );
     }
 
-    private Score buildNewScore(Resume resume) {
+    private Score buildNewScore(Resume resume, Job job) {
         Score score = new Score();
         score.setUser(resume.getUser());
-        score.setJob(resume.getJob());
+        score.setJob(job);
         score.setResume(resume);
         return score;
     }

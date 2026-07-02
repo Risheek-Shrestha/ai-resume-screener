@@ -185,7 +185,6 @@ class ApplicationRepositoryTest {
 
         Resume resume = new Resume();
         resume.setUser(user);
-        resume.setJob(job);
         resume.setResumeName("Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("application/pdf");
@@ -230,7 +229,6 @@ class ApplicationRepositoryTest {
 
         Resume resume = new Resume();
         resume.setUser(user);
-        resume.setJob(job);
         resume.setResumeName("Resume");
         resume.setFileName("resume.pdf");
         resume.setFileType("application/pdf");

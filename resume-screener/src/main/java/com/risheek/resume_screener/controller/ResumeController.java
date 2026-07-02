@@ -11,7 +11,9 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -20,18 +22,20 @@ public class ResumeController {
 
     private final ResumeService resumeService;
 
-    public ResumeController(ResumeService resumeService){
+    public ResumeController(ResumeService resumeService) {
         this.resumeService = resumeService;
     }
 
-    @PostMapping    
-    public ResponseEntity<ResumeResponse> uploadResume(@Valid @RequestBody ResumeRequest request){
-        return ResponseEntity.status(201).body(resumeService.uploadResume(request));
+    @PostMapping
+    public ResponseEntity<ResumeResponse> uploadResume(@RequestParam("file") MultipartFile file,
+                                                       @RequestParam("resumeName") String resumeName) throws IOException {
+        return ResponseEntity.status(201).body(resumeService.uploadResume(file, resumeName));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ResumeResponse> updateResume(@PathVariable Long id, @Valid @RequestBody ResumeRequest request) {
-        return ResponseEntity.ok(resumeService.updateResume(id, request));
+    public ResponseEntity<ResumeResponse> updateResume(@PathVariable Long id,@RequestParam("file") MultipartFile file,
+                                                       @RequestParam("resumeName") String resumeName ) throws IOException {
+        return ResponseEntity.ok(resumeService.updateResume(id, file, resumeName));
     }
 
     @DeleteMapping("/{id}")

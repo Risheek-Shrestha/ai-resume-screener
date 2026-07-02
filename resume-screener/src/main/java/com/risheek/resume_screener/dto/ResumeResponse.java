@@ -11,8 +11,6 @@ public class ResumeResponse {
 
     private Long id;
 
-    private Long jobId;
-
     private String resumeName;
 
     private String fileName;

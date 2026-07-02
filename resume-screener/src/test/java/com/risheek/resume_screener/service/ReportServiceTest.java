@@ -6,10 +6,12 @@ import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.Score;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.ScoreNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
+import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
 import com.risheek.resume_screener.repository.ScoreRepository;
 import com.risheek.resume_screener.repository.UserRepository;
@@ -26,7 +28,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,21 +38,22 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
-    @Mock
-    private ResumeRepository resumeRepository;
-    @Mock
-    private ScoreRepository scoreRepository;
-    @Mock
-    private UserRepository userRepository;
+    @Mock private ResumeRepository resumeRepository;
+    @Mock private ScoreRepository scoreRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private JobRepository jobRepository;
 
     private ReportService reportService;
 
     private static final String EMAIL = "test@example.com";
+    private static final Long RESUME_ID = 100L;
+    private static final Long JOB_ID = 10L;
 
     @BeforeEach
     void setUp() {
         reportService = new ReportService(
-                resumeRepository, scoreRepository, userRepository, new ObjectMapper()
+                resumeRepository, scoreRepository, userRepository,
+                jobRepository, new ObjectMapper()
         );
 
         SecurityContext securityContext = mock(SecurityContext.class);
@@ -75,15 +77,15 @@ class ReportServiceTest {
 
     private Job buildJob() {
         Job job = new Job();
+        job.setId(JOB_ID);
         job.setTitle("Backend Developer");
         return job;
     }
 
-    private Resume buildResume(User owner, Job job) {
+    private Resume buildResume(User owner) {
         Resume resume = new Resume();
-        resume.setId(100L);
+        resume.setId(RESUME_ID);
         resume.setUser(owner);
-        resume.setJob(job);
         return resume;
     }
 
@@ -103,11 +105,11 @@ class ReportServiceTest {
             "20, WEAK, Not Ready"
     })
     void generateReport_happyPath_correctBandingAcrossScoreRanges(
-            int scoreValue, String expectedLevel, String expectedReadiness
-    ) {
+            int scoreValue, String expectedLevel, String expectedReadiness) {
+
         User user = buildUser();
         Job job = buildJob();
-        Resume resume = buildResume(user, job);
+        Resume resume = buildResume(user);
         Score score = buildScore(
                 new BigDecimal(scoreValue),
                 "[\"Java\",\"Spring Boot\"]",
@@ -115,12 +117,13 @@ class ReportServiceTest {
         );
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
-        when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
 
-        ReportResponse result = reportService.generateReport(100L);
+        ReportResponse result = reportService.generateReport(RESUME_ID, JOB_ID);
 
-        assertThat(result.getResumeId()).isEqualTo(100L);
+        assertThat(result.getResumeId()).isEqualTo(RESUME_ID);
         assertThat(result.getJobTitle()).isEqualTo("Backend Developer");
         assertThat(result.getOverallScore()).isEqualTo(new BigDecimal(scoreValue));
         assertThat(result.getScoreLevel()).isEqualTo(expectedLevel);
@@ -138,17 +141,17 @@ class ReportServiceTest {
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class,
-                () -> reportService.generateReport(100L));
+                () -> reportService.generateReport(RESUME_ID, JOB_ID));
     }
 
     @Test
     void generateReport_resumeNotFound_throwsResumeNotFoundException() {
         User user = buildUser();
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
-        when(resumeRepository.findById(100L)).thenReturn(Optional.empty());
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.empty());
 
         assertThrows(ResumeNotFoundException.class,
-                () -> reportService.generateReport(100L));
+                () -> reportService.generateReport(RESUME_ID, JOB_ID));
     }
 
     @Test
@@ -159,42 +162,56 @@ class ReportServiceTest {
         otherOwner.setId(999L);
         otherOwner.setEmail("someoneelse@example.com");
 
-        Job job = buildJob();
-        Resume resume = buildResume(otherOwner, job);
+        Resume resume = buildResume(otherOwner);
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(currentUser));
-        when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
 
         assertThrows(UnauthorizedAccessException.class,
-                () -> reportService.generateReport(100L));
+                () -> reportService.generateReport(RESUME_ID, JOB_ID));
+    }
+
+    @Test
+    void generateReport_jobNotFound_throwsJobNotFoundException() {
+        User user = buildUser();
+        Resume resume = buildResume(user);
+
+        when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.empty());
+
+        assertThrows(JobNotFoundException.class,
+                () -> reportService.generateReport(RESUME_ID, JOB_ID));
     }
 
     @Test
     void generateReport_scoreNotFound_throwsScoreNotFoundException() {
         User user = buildUser();
         Job job = buildJob();
-        Resume resume = buildResume(user, job);
+        Resume resume = buildResume(user);
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
-        when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.empty());
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.empty());
 
         assertThrows(ScoreNotFoundException.class,
-                () -> reportService.generateReport(100L));
+                () -> reportService.generateReport(RESUME_ID, JOB_ID));
     }
 
     @Test
     void generateReport_emptyMissingSkills_fallsBackToGenericImprovements() {
         User user = buildUser();
         Job job = buildJob();
-        Resume resume = buildResume(user, job);
+        Resume resume = buildResume(user);
         Score score = buildScore(new BigDecimal(75), "[\"Java\"]", "[]");
 
         when(userRepository.findByEmail(EMAIL)).thenReturn(Optional.of(user));
-        when(resumeRepository.findById(100L)).thenReturn(Optional.of(resume));
-        when(scoreRepository.findByResumeId(100L)).thenReturn(Optional.of(score));
+        when(resumeRepository.findById(RESUME_ID)).thenReturn(Optional.of(resume));
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(scoreRepository.findByResumeIdAndJobId(RESUME_ID, JOB_ID)).thenReturn(Optional.of(score));
 
-        ReportResponse result = reportService.generateReport(100L);
+        ReportResponse result = reportService.generateReport(RESUME_ID, JOB_ID);
 
         assertThat(result.getImprovements()).containsExactly(
                 "Continue building real-world projects",

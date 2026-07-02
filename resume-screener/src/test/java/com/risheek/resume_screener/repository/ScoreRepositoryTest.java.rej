@@ -1,0 +1,433 @@
+diff a/resume-screener/src/test/java/com/risheek/resume_screener/repository/ScoreRepositoryTest.java b/resume-screener/src/test/java/com/risheek/resume_screener/repository/ScoreRepositoryTest.java	(rejected hunks)
+@@ -1,6 +1,7 @@
+ package com.risheek.resume_screener.repository;
+ 
+ import com.fasterxml.jackson.core.JsonProcessingException;
++import com.fasterxml.jackson.databind.ObjectMapper;
+ import com.risheek.resume_screener.entity.*;
+ import org.junit.jupiter.api.Test;
+ import org.springframework.beans.factory.annotation.Autowired;
+@@ -11,11 +12,11 @@ import org.springframework.test.context.DynamicPropertySource;
+ import org.testcontainers.junit.jupiter.Container;
+ import org.testcontainers.junit.jupiter.Testcontainers;
+ import org.testcontainers.postgresql.PostgreSQLContainer;
+-import com.fasterxml.jackson.databind.ObjectMapper;
+ 
+ import java.math.BigDecimal;
+ import java.time.LocalDateTime;
+ import java.util.List;
++import java.util.Optional;
+ 
+ import static org.junit.jupiter.api.Assertions.*;
+ 
+@@ -24,8 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
+ class ScoreRepositoryTest {
+ 
+     @Container
+-    static PostgreSQLContainer postgres =
+-            new PostgreSQLContainer("postgres:16-alpine");
++    static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
+ 
+     @DynamicPropertySource
+     static void configureProperties(DynamicPropertyRegistry registry) {
+@@ -34,59 +34,51 @@ class ScoreRepositoryTest {
+         registry.add("spring.datasource.password", postgres::getPassword);
+     }
+ 
+-    @Autowired
+-    private ScoreRepository scoreRepository;
+-    @Autowired
+-    private ResumeRepository resumeRepository;
+-    @Autowired
+-    private JobSkillRepository jobSkillRepository;
+-    @Autowired
+-    private JobRepository jobRepository;
+-    @Autowired
+-    private UserRepository userRepository;
+-    @Autowired
+-    private TestEntityManager entityManager;
+-
+-    @Test
+-    void shouldGenerateAndRetrieveScore() throws JsonProcessingException {
+-
+-        ObjectMapper objectMapper = new ObjectMapper();
++    @Autowired private ScoreRepository scoreRepository;
++    @Autowired private ResumeRepository resumeRepository;
++    @Autowired private JobSkillRepository jobSkillRepository;
++    @Autowired private JobRepository jobRepository;
++    @Autowired private UserRepository userRepository;
++    @Autowired private TestEntityManager entityManager;
+ 
++    private User savedUser(String username, String email) {
+         User user = new User();
+-
+-        user.setUsername("Risheek");
+-        user.setEmail("risheekshrestha@gmail.com");
+-        user.setPasswordHash("risheek@1234");
++        user.setUsername(username);
++        user.setEmail(email);
++        user.setPasswordHash("password@1234");
+         user.setRole(User.Role.USER);
++        return userRepository.save(user);
++    }
+ 
+-        User currentUser =  userRepository.save(user);
+-
++    private Job savedJob(User owner) {
+         Job job = new Job();
+-
+         job.setTitle("DevOps Engineer");
+-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
++        job.setDescription("Looking for a DevOps engineer with Docker and Kubernetes skills.");
+         job.setJobType(Job.JobType.FULL_TIME);
+         job.setExperienceLevel(Job.ExperienceLevel.MID);
+-        job.setUser(currentUser);
+-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+-
+-        Job currentJob = jobRepository.save(job);
+-
+-        JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
+-        JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
+-
+-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
++        job.setUser(owner);
++        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0));
++        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0));
++        return jobRepository.save(job);
++    }
+ 
++    private Resume savedResume(User user) {
+         Resume resume = new Resume();
+-        resume.setUser(currentUser);
+-        resume.setJob(currentJob);
++        resume.setUser(user);
+         resume.setResumeName("Backend Developer Resume");
+         resume.setFileName("test-resume.pdf");
+         resume.setFileType("application/pdf");
+         resume.setFileData("test content".getBytes());
++        return resumeRepository.save(resume);
++    }
+ 
+-        Resume savedResume = resumeRepository.save(resume);
++    @Test
++    void shouldGenerateAndRetrieveScore() throws JsonProcessingException {
++        ObjectMapper objectMapper = new ObjectMapper();
++
++        User currentUser = savedUser("Risheek", "risheekshrestha@gmail.com");
++        Job currentJob = savedJob(currentUser);
++        Resume savedResume = savedResume(currentUser);
+ 
+         Score score = new Score();
+         score.setUser(currentUser);
+@@ -98,67 +90,27 @@ class ScoreRepositoryTest {
+         score.setRecommendationsSummary("Strong match on core DevOps tools.");
+ 
+         Score savedScore = scoreRepository.save(score);
+-
+         entityManager.flush();
+         entityManager.clear();
+ 
+-        var found = scoreRepository.findById(savedScore.getId());
++        Optional<Score> found = scoreRepository.findById(savedScore.getId());
+ 
+         assertTrue(found.isPresent());
+-
+-        List<String> expectedMatched = List.of("Docker", "Kubernetes");
+-        List<String> actualMatched = objectMapper.readValue(found.get().getMatchedKeywords(), List.class);
+-        assertEquals(expectedMatched, actualMatched);
+-
+-        List<String> expectedMissing = List.of("AWS");
+-        List<String> actualMissing = objectMapper.readValue(found.get().getMissingKeywords(), List.class);
+-        assertEquals(expectedMissing, actualMissing);
+-
+         assertEquals(0, BigDecimal.valueOf(85.5).compareTo(found.get().getOverallScore()));
+         assertEquals(currentUser.getId(), found.get().getUser().getId());
+         assertEquals(currentJob.getId(), found.get().getJob().getId());
++
++        List<String> actualMatched = objectMapper.readValue(found.get().getMatchedKeywords(), List.class);
++        assertEquals(List.of("Docker", "Kubernetes"), actualMatched);
+     }
+ 
+     @Test
+-    void shouldGenerateAndRetrieveScoreByResumeId() throws JsonProcessingException {
+-
++    void shouldFindByResumeIdAndJobId() throws JsonProcessingException {
+         ObjectMapper objectMapper = new ObjectMapper();
+ 
+-        User user = new User();
+-
+-        user.setUsername("Risheek");
+-        user.setEmail("risheekshrestha@gmail.com");
+-        user.setPasswordHash("risheek@1234");
+-        user.setRole(User.Role.USER);
+-
+-        User currentUser =  userRepository.save(user);
+-
+-        Job job = new Job();
+-
+-        job.setTitle("DevOps Engineer");
+-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
+-        job.setJobType(Job.JobType.FULL_TIME);
+-        job.setExperienceLevel(Job.ExperienceLevel.MID);
+-        job.setUser(currentUser);
+-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+-
+-        Job currentJob = jobRepository.save(job);
+-
+-        JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
+-        JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
+-
+-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
+-
+-        Resume resume = new Resume();
+-        resume.setUser(currentUser);
+-        resume.setJob(currentJob);
+-        resume.setResumeName("Backend Developer Resume");
+-        resume.setFileName("test-resume.pdf");
+-        resume.setFileType("application/pdf");
+-        resume.setFileData("test content".getBytes());
+-
+-        Resume savedResume = resumeRepository.save(resume);
++        User currentUser = savedUser("Risheek", "risheekshrestha@gmail.com");
++        Job currentJob = savedJob(currentUser);
++        Resume savedResume = savedResume(currentUser);
+ 
+         Score score = new Score();
+         score.setUser(currentUser);
+@@ -168,91 +120,39 @@ class ScoreRepositoryTest {
+         score.setMatchedKeywords("[\"Docker\",\"Kubernetes\"]");
+         score.setMissingKeywords("[\"AWS\"]");
+         score.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore = scoreRepository.save(score);
++        scoreRepository.save(score);
+ 
+         entityManager.flush();
+         entityManager.clear();
+ 
+-        var found = scoreRepository.findByResumeId(savedResume.getId());
++        Optional<Score> found = scoreRepository.findByResumeIdAndJobId(savedResume.getId(), currentJob.getId());
+ 
+         assertTrue(found.isPresent());
++        assertEquals(0, BigDecimal.valueOf(85.5).compareTo(found.get().getOverallScore()));
+ 
+-        List<String> expectedMatched = List.of("Docker", "Kubernetes");
+         List<String> actualMatched = objectMapper.readValue(found.get().getMatchedKeywords(), List.class);
+-        assertEquals(expectedMatched, actualMatched);
+-
+-        List<String> expectedMissing = List.of("AWS");
+-        List<String> actualMissing = objectMapper.readValue(found.get().getMissingKeywords(), List.class);
+-        assertEquals(expectedMissing, actualMissing);
+-
+-        assertEquals(0, BigDecimal.valueOf(85.5).compareTo(found.get().getOverallScore()));
+-        assertEquals(currentUser.getId(), found.get().getUser().getId());
+-        assertEquals(currentJob.getId(), found.get().getJob().getId());
++        assertEquals(List.of("Docker", "Kubernetes"), actualMatched);
+     }
+ 
+     @Test
+-    void shouldGenerateAndRetrieveScoreByJobId() throws JsonProcessingException {
+-
+-        ObjectMapper objectMapper = new ObjectMapper();
+-
+-        User user = new User();
+-
+-        user.setUsername("Risheek");
+-        user.setEmail("risheekshrestha@gmail.com");
+-        user.setPasswordHash("risheek@1234");
+-        user.setRole(User.Role.USER);
+-
+-        User currentUser =  userRepository.save(user);
+-
+-        Job job = new Job();
+-
+-        job.setTitle("DevOps Engineer");
+-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
+-        job.setJobType(Job.JobType.FULL_TIME);
+-        job.setExperienceLevel(Job.ExperienceLevel.MID);
+-        job.setUser(currentUser);
+-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+-
+-        Job currentJob = jobRepository.save(job);
+-
+-        JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
+-        JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
+-
+-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
+-
+-        Resume resume = new Resume();
+-        resume.setUser(currentUser);
+-        resume.setJob(currentJob);
+-        resume.setResumeName("Backend Developer Resume");
+-        resume.setFileName("test-resume.pdf");
+-        resume.setFileType("application/pdf");
+-        resume.setFileData("test content".getBytes());
+-
+-        Resume savedResume = resumeRepository.save(resume);
++    void shouldFindByJobId() {
++        User currentUser = savedUser("Risheek", "risheekshrestha@gmail.com");
++        Job currentJob = savedJob(currentUser);
++        Resume savedResume = savedResume(currentUser);
+ 
+         Score score1 = new Score();
+-        score1.setUser(currentUser);
+-        score1.setJob(currentJob);
+-        score1.setResume(savedResume);
++        score1.setUser(currentUser); score1.setJob(currentJob); score1.setResume(savedResume);
+         score1.setOverallScore(BigDecimal.valueOf(85.5));
+-        score1.setMatchedKeywords("[\"Docker\",\"Kubernetes\"]");
+-        score1.setMissingKeywords("[\"AWS\"]");
+-        score1.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore1 = scoreRepository.save(score1);
++        score1.setMatchedKeywords("[\"Docker\"]"); score1.setMissingKeywords("[\"AWS\"]");
++        score1.setRecommendationsSummary("Good");
++        scoreRepository.save(score1);
+ 
+         Score score2 = new Score();
+-        score2.setUser(currentUser);
+-        score2.setJob(currentJob);
+-        score2.setResume(savedResume);
++        score2.setUser(currentUser); score2.setJob(currentJob); score2.setResume(savedResume);
+         score2.setOverallScore(BigDecimal.valueOf(80.5));
+-        score2.setMatchedKeywords("[\"Docker\",\"Kubernetes\", \"Java\"]");
+-        score2.setMissingKeywords("[\"AWS\", \"Python\"]");
+-        score2.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore2 = scoreRepository.save(score2);
++        score2.setMatchedKeywords("[\"Kubernetes\"]"); score2.setMissingKeywords("[\"Python\"]");
++        score2.setRecommendationsSummary("Decent");
++        scoreRepository.save(score2);
+ 
+         entityManager.flush();
+         entityManager.clear();
+@@ -260,102 +160,45 @@ class ScoreRepositoryTest {
+         List<Score> scores = scoreRepository.findByJobId(currentJob.getId());
+ 
+         assertEquals(2, scores.size());
+-        assertTrue(scores.stream().anyMatch(s ->
+-                BigDecimal.valueOf(85.5).compareTo(s.getOverallScore()) == 0));
+-        assertTrue(scores.stream().anyMatch(s ->
+-                BigDecimal.valueOf(80.5).compareTo(s.getOverallScore()) == 0));
++        assertTrue(scores.stream().anyMatch(s -> BigDecimal.valueOf(85.5).compareTo(s.getOverallScore()) == 0));
++        assertTrue(scores.stream().anyMatch(s -> BigDecimal.valueOf(80.5).compareTo(s.getOverallScore()) == 0));
+     }
+ 
+     @Test
+-    void shouldFindByUserId(){
+-
+-        ObjectMapper objectMapper = new ObjectMapper();
+-
+-        User userA = new User();
+-        userA.setUsername("Risheek");
+-        userA.setEmail("risheekshrestha@gmail.com");
+-        userA.setPasswordHash("risheek@1234");
+-        userA.setRole(User.Role.USER);
+-        User savedUserA = userRepository.save(userA);
+-
+-        User userB = new User();
+-        userB.setUsername("OtherUser");
+-        userB.setEmail("otheruser@gmail.com");
+-        userB.setPasswordHash("other@1234");
+-        userB.setRole(User.Role.USER);
+-        User savedUserB = userRepository.save(userB);
+-
+-        Job job = new Job();
+-
+-        job.setTitle("DevOps Engineer");
+-        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
+-        job.setJobType(Job.JobType.FULL_TIME);
+-        job.setExperienceLevel(Job.ExperienceLevel.MID);
+-        job.setUser(savedUserA);
+-        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+-        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+-
+-        Job currentJob = jobRepository.save(job);
+-
+-        JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
+-        JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
+-
+-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
+-
+-        Resume resume = new Resume();
+-        resume.setUser(savedUserA);
+-        resume.setJob(currentJob);
+-        resume.setResumeName("Backend Developer Resume");
+-        resume.setFileName("test-resume.pdf");
+-        resume.setFileType("application/pdf");
+-        resume.setFileData("test content".getBytes());
+-
+-        Resume savedResume = resumeRepository.save(resume);
++    void shouldFindByUserId() {
++        User userA = savedUser("Risheek", "risheekshrestha@gmail.com");
++        User userB = savedUser("OtherUser", "otheruser@gmail.com");
++        Job currentJob = savedJob(userA);
++        Resume savedResume = savedResume(userA);
+ 
+         Score score1 = new Score();
+-        score1.setUser(savedUserA);
+-        score1.setJob(currentJob);
+-        score1.setResume(savedResume);
++        score1.setUser(userA); score1.setJob(currentJob); score1.setResume(savedResume);
+         score1.setOverallScore(BigDecimal.valueOf(85.5));
+-        score1.setMatchedKeywords("[\"Docker\",\"Kubernetes\"]");
+-        score1.setMissingKeywords("[\"AWS\"]");
+-        score1.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore1 = scoreRepository.save(score1);
++        score1.setMatchedKeywords("[\"Docker\"]"); score1.setMissingKeywords("[\"AWS\"]");
++        score1.setRecommendationsSummary("Good");
++        scoreRepository.save(score1);
+ 
+         Score score2 = new Score();
+-        score2.setUser(savedUserA);
+-        score2.setJob(currentJob);
+-        score2.setResume(savedResume);
++        score2.setUser(userA); score2.setJob(currentJob); score2.setResume(savedResume);
+         score2.setOverallScore(BigDecimal.valueOf(80.5));
+-        score2.setMatchedKeywords("[\"Docker\",\"Kubernetes\", \"Java\"]");
+-        score2.setMissingKeywords("[\"AWS\", \"Python\"]");
+-        score2.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore2 = scoreRepository.save(score2);
++        score2.setMatchedKeywords("[\"Kubernetes\"]"); score2.setMissingKeywords("[\"Python\"]");
++        score2.setRecommendationsSummary("Decent");
++        scoreRepository.save(score2);
+ 
+         Score score3 = new Score();
+-        score3.setUser(savedUserB);
+-        score3.setJob(currentJob);
+-        score3.setResume(savedResume);
++        score3.setUser(userB); score3.setJob(currentJob); score3.setResume(savedResume);
+         score3.setOverallScore(BigDecimal.valueOf(89.5));
+-        score3.setMatchedKeywords("[\"Kubernetes\", \"Java\"]");
+-        score3.setMissingKeywords("[\"Python\"]");
+-        score3.setRecommendationsSummary("Strong match on core DevOps tools.");
+-
+-        Score savedScore = scoreRepository.save(score3);
++        score3.setMatchedKeywords("[\"Java\"]"); score3.setMissingKeywords("[\"AWS\"]");
++        score3.setRecommendationsSummary("Strong");
++        scoreRepository.save(score3);
+ 
+         entityManager.flush();
+         entityManager.clear();
+ 
+-        List<Score> scores = scoreRepository.findByUserId(savedUserA.getId());
++        List<Score> scores = scoreRepository.findByUserId(userA.getId());
+ 
+         assertEquals(2, scores.size());
+-        assertTrue(scores.stream().anyMatch(s ->
+-                BigDecimal.valueOf(85.5).compareTo(s.getOverallScore()) == 0));
+-        assertTrue(scores.stream().anyMatch(s ->
+-                BigDecimal.valueOf(80.5).compareTo(s.getOverallScore()) == 0));
+-
++        assertTrue(scores.stream().anyMatch(s -> BigDecimal.valueOf(85.5).compareTo(s.getOverallScore()) == 0));
++        assertTrue(scores.stream().anyMatch(s -> BigDecimal.valueOf(80.5).compareTo(s.getOverallScore()) == 0));
+     }
+-
+-}
+\ No newline at end of file
++}

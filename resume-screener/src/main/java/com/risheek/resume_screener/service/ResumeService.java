@@ -1,13 +1,10 @@
 package com.risheek.resume_screener.service;
 
 import com.risheek.resume_screener.dto.*;
-import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.User;
-import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.ResumeNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
-import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.ResumeRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import jakarta.transaction.Transactional;
@@ -15,10 +12,13 @@ import jakarta.validation.Valid;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.reactive.function.client.WebClientException;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -28,49 +28,36 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
-    private final JobRepository jobRepository;
-    private final ScoreService scoreService;
     private final WebClient webClient;
 
     public ResumeService(ResumeRepository resumeRepository, UserRepository userRepository,
-                         JobRepository jobRepository, ScoreService scoreService,
                          WebClient.Builder webClientBuilder, @Value("${ml.service.url}") String mlServiceUrl) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
-        this.jobRepository = jobRepository;
-        this.scoreService = scoreService;
         this.webClient = webClientBuilder.baseUrl(mlServiceUrl).build();
     }
 
     @Transactional
-    public ResumeResponse uploadResume(@Valid ResumeRequest request) {
+    public ResumeResponse uploadResume( MultipartFile file, String resumeName) throws IOException {
         Resume resume = null;
         Resume savedResume;
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
-        Job currentJob = jobRepository.findById(request.getJobId())
-                .orElseThrow(() ->
-                        new JobNotFoundException("Job not found"));
         resume = new Resume();
         resume.setUser(currentUser);
-        resume.setJob(currentJob);
-        resume.setFileName(request.getFileName());
-        resume.setFileType(request.getFileType());
-        resume.setFileData(request.getFileData());
-        resume.setResumeName(request.getResumeName());
+        resume.setFileName(file.getOriginalFilename());
+        resume.setFileType(file.getContentType());
+        byte[] fileData = file.getBytes();
+        resume.setFileData(fileData);
+        resume.setResumeName(resumeName);
 
-        parseAndSetText(resume, request.getFileData(), request.getFileType());
+        parseAndSetText(resume, fileData, file.getContentType());
 
         savedResume = resumeRepository.save(resume);
 
-        if (savedResume.getParsedTextAvailable()) {
-            scoreService.generateScore(savedResume);
-        }
-
         return new ResumeResponse(
                 savedResume.getId(),
-                savedResume.getJob().getId(),
                 savedResume.getFileName(),
                 savedResume.getFileType(),
                 savedResume.getResumeName()
@@ -78,38 +65,30 @@ public class ResumeService {
     }
 
     @Transactional
-    public ResumeResponse updateResume(Long id, @Valid ResumeRequest request) {
+    public ResumeResponse updateResume(Long id, MultipartFile file, String resumeName) throws IOException{
         Resume resume = resumeRepository.findById(id)
                 .orElseThrow(() -> new ResumeNotFoundException("Resume not found with id" + id));
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Authenticated user not found"));
-        Job currentJob = jobRepository.findById(request.getJobId())
-                .orElseThrow(() ->
-                        new JobNotFoundException("Job not found"));
 
         if (!resume.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("You are not allowed to modify this resume");
         }
 
         resume.setUser(currentUser);
-        resume.setJob(currentJob);
-        resume.setFileName(request.getFileName());
-        resume.setFileType(request.getFileType());
-        resume.setFileData(request.getFileData());
-        resume.setResumeName(request.getResumeName());
+        resume.setFileName(file.getOriginalFilename());
+        resume.setFileType(file.getContentType());
+        byte[] fileData = file.getBytes();
+        resume.setFileData(fileData);
+        resume.setResumeName(resumeName);
 
-        parseAndSetText(resume, request.getFileData(), request.getFileType());
+        parseAndSetText(resume, fileData, file.getContentType());
 
         Resume savedResume = resumeRepository.save(resume);
 
-        if (savedResume.getParsedTextAvailable()) {
-            scoreService.generateScore(savedResume);
-        }
-
         return new ResumeResponse(
                 savedResume.getId(),
-                savedResume.getJob().getId(),
                 savedResume.getFileName(),
                 savedResume.getFileType(),
                 savedResume.getResumeName()
@@ -146,7 +125,6 @@ public class ResumeService {
         return resumes.stream()
                 .map(resume -> new ResumeResponse(
                         resume.getId(),
-                        resume.getJob().getId(),
                         resume.getResumeName(),
                         resume.getFileName(),
                         resume.getFileType()
@@ -172,7 +150,6 @@ public class ResumeService {
 
         ResumeResponse response = new ResumeResponse();
         response.setId(resume.getId());
-        response.setJobId(resume.getJob().getId());
         response.setResumeName(resume.getResumeName());
         response.setFileName(resume.getFileName());
         response.setFileType(resume.getFileType());
