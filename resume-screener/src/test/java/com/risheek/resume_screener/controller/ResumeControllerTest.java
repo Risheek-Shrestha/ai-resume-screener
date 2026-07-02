@@ -243,7 +243,7 @@ class ResumeControllerTest {
 
     @Test
     @WithMockUser
-    void getResumeForApplication_returns200() throws Exception {
+    void downloadResumeForApplication_returns200() throws Exception {
 
         ResumeResponse response =
                 new ResumeResponse(
@@ -256,10 +256,15 @@ class ResumeControllerTest {
         when(resumeService.getResumeForApplication(10L))
                 .thenReturn(response);
 
-        mockMvc.perform(get("/api/v1/resumes/application/10"))
+        mockMvc.perform(get("/api/v1/resumes/application/10/download"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.fileName").value("resume.pdf"));
+                .andExpect(header().string(
+                        "Content-Disposition",
+                        "inline; filename=\"resume.pdf\""))
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(content().bytes(FILE_DATA));
+
+        verify(resumeService).getResumeForApplication(10L);
     }
 
     @Test

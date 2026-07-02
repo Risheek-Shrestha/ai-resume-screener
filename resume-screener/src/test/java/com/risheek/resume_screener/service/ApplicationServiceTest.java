@@ -214,11 +214,6 @@ class ApplicationServiceTest {
         assertEquals(resume, result.getResume());
         assertEquals(score, result.getScore());
         assertEquals(ApplicationStatus.APPLIED, result.getStatus());
-
-        when(scoreService.generateScore(
-                any(Resume.class),
-                any(Job.class)
-        )).thenReturn(score);
         verify(applicationRepository).save(any(Application.class));
     }
 
