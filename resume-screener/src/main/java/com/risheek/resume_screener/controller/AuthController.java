@@ -2,13 +2,19 @@
 
     import com.risheek.resume_screener.dto.AuthRequest;
     import com.risheek.resume_screener.dto.AuthResponse;
+    import com.risheek.resume_screener.dto.ForgotPasswordRequest;
     import com.risheek.resume_screener.dto.RefreshRequest;
+    import com.risheek.resume_screener.dto.ResetPasswordRequest;
+    import com.risheek.resume_screener.entity.PasswordResetToken;
     import com.risheek.resume_screener.entity.RefreshToken;
     import com.risheek.resume_screener.entity.User;
     import com.risheek.resume_screener.exception.InvalidCredentialsException;
     import com.risheek.resume_screener.jwt.JwtUtil;
+    import com.risheek.resume_screener.repository.PasswordResetTokenRepository;
     import com.risheek.resume_screener.repository.RefreshTokenRepository;
     import com.risheek.resume_screener.repository.UserRepository;
+    import com.risheek.resume_screener.service.MailService;
+    import jakarta.validation.Valid;
     import org.springframework.http.HttpStatus;
     import org.springframework.http.ResponseEntity;
     import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,12 +31,16 @@
         private final PasswordEncoder passwordEncoder;
         private final JwtUtil jwtUtil;
         private final RefreshTokenRepository refreshTokenRepository;
+        private final PasswordResetTokenRepository passwordResetTokenRepository;
+        private final MailService mailService;
 
-        public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, RefreshTokenRepository refreshTokenRepository) {
+        public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, RefreshTokenRepository refreshTokenRepository, PasswordResetTokenRepository passwordResetTokenRepository, MailService mailService) {
             this.userRepository = userRepository;
             this.passwordEncoder = passwordEncoder;
             this.jwtUtil = jwtUtil;
             this.refreshTokenRepository = refreshTokenRepository;
+            this.passwordResetTokenRepository = passwordResetTokenRepository;
+            this.mailService = mailService;
         }
 
         @PostMapping("/register")
@@ -93,5 +103,55 @@
             refreshTokenRepository.findByToken(request.getRefreshToken())
                     .ifPresent(refreshTokenRepository::delete);
             return ResponseEntity.ok("Logged out successfully");
+        }
+
+        @PostMapping("/forgot-password")
+        public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+            userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+                // Invalidate any previous outstanding tokens for this user.
+                passwordResetTokenRepository.deleteByUser(user);
+
+                PasswordResetToken resetToken = new PasswordResetToken();
+                resetToken.setToken(UUID.randomUUID().toString());
+                resetToken.setUser(user);
+                resetToken.setExpiryDate(Instant.now().plusSeconds(30 * 60)); // 30 minutes
+                resetToken.setUsed(false);
+                passwordResetTokenRepository.save(resetToken);
+
+                mailService.sendPasswordResetEmail(user.getEmail(), resetToken.getToken());
+            });
+
+            // Always return the same response, whether or not the email exists,
+            // so we don't leak which addresses are registered.
+            return ResponseEntity.ok("If an account exists for that email, a reset link has been sent.");
+        }
+
+        @PostMapping("/reset-password")
+        public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+            PasswordResetToken resetToken = passwordResetTokenRepository
+                    .findByToken(request.getToken())
+                    .orElse(null);
+
+            if (resetToken == null || resetToken.isUsed()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or already used reset link");
+            }
+
+            if (resetToken.getExpiryDate().isBefore(Instant.now())) {
+                passwordResetTokenRepository.delete(resetToken);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Reset link expired, please request a new one");
+            }
+
+            User user = resetToken.getUser();
+            user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+            resetToken.setUsed(true);
+            passwordResetTokenRepository.save(resetToken);
+
+            // Invalidate existing sessions so old refresh tokens can't be used
+            // after a password reset.
+            refreshTokenRepository.deleteByUser(user);
+
+            return ResponseEntity.ok("Password reset successfully");
         }
     }

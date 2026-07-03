@@ -23,6 +23,9 @@ spring.data.redis.port=6379
 
 ml.service.url=http://localhost:8000
 
+# Frontend base URL, used to build links in emails (e.g. password reset)
+app.frontend.url=http://localhost:5173
+
 #Smtp configuration
 spring.mail.host=sandbox.smtp.mailtrap.io
 spring.mail.port=2525
