@@ -44,12 +44,14 @@ class JobServiceTest {
     private JobSkillRepository jobSkillRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private NotificationService notificationService;
 
     private JobService jobService;
 
     @BeforeEach
     void setUp() {
-        jobService = new JobService(jobRepository, jobSkillRepository, userRepository);
+        jobService = new JobService(jobRepository, jobSkillRepository, userRepository, notificationService);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication())

@@ -103,7 +103,7 @@ public class JobService {
 
     @Cacheable(
             value = "jobs",
-            key = "'my_jobs_' + authentication.name + '_page_' + #page + '_size_' + #size"
+            key = "'my_jobs_' + T(org.springframework.security.core.context.SecurityContextHolder).getContext().getAuthentication().getName() + '_page_' + #page + '_size_' + #size"
     )
     @Transactional
     public JobPageResponse getMyJobs(int page, int size) {

@@ -2,13 +2,19 @@ package com.risheek.resume_screener.listener;
 
 import com.risheek.resume_screener.dto.ApplicationNotificationEvent;
 import com.risheek.resume_screener.entity.ApplicationStatus;
+import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.repository.UserRepository;
 import com.risheek.resume_screener.service.MailService;
+import com.risheek.resume_screener.service.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -16,12 +22,21 @@ class NotificationListenerTest {
 
     @Mock
     private MailService mailService;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private UserRepository userRepository;
 
     private NotificationListener notificationListener;
 
     @BeforeEach
     void setUp() {
-        notificationListener = new NotificationListener(mailService);
+        notificationListener = new NotificationListener(mailService, notificationService, userRepository);
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("user@example.com");
+        lenient().when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(user));
     }
 
     @Test
