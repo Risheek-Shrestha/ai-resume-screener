@@ -3,6 +3,7 @@ package com.risheek.resume_screener.controller;
 import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
+import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.service.JobService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -41,17 +42,25 @@ public class JobController {
     @GetMapping
     public ResponseEntity<JobPageResponse> getAllJobs(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Job.JobType jobType,
+            @RequestParam(required = false) Job.ExperienceLevel level,
+            @RequestParam(required = false) String skill
     ) {
-        return ResponseEntity.ok(jobService.getAllJobs(page, size));
+        return ResponseEntity.ok(jobService.getAllJobs(page, size, keyword, jobType, level, skill));
     }
 
 
     @GetMapping("/open")
     public ResponseEntity<JobPageResponse> getOpenJobsForUser(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(jobService.getOpenJobsForUser(page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Job.JobType jobType,
+            @RequestParam(required = false) Job.ExperienceLevel level,
+            @RequestParam(required = false) String skill) {
+        return ResponseEntity.ok(jobService.getOpenJobsForUser(page, size, keyword, jobType, level, skill));
     }
 
     @PutMapping("/{id}")

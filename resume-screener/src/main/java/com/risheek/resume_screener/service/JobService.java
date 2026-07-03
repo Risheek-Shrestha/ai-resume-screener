@@ -12,12 +12,14 @@ import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.UserRepository;
+import com.risheek.resume_screener.specification.JobSpecification;
 import jakarta.transaction.Transactional;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.risheek.resume_screener.entity.User;
@@ -132,10 +134,11 @@ public class JobService {
         return toResponse(job);
     }
 
-    @Cacheable(value = "jobs", key = "'page_' + #page + '_size_' + #size")
-    public JobPageResponse getAllJobs(int page, int size) {
+    @Cacheable(value = "jobs", key = "'page_' + #page + '_size_' + #size + 'keyword' + #keyword + 'jobType' + #jobType + 'level' + #level + 'skill' + #skill")
+    public JobPageResponse getAllJobs(int page, int size, String keyword, Job.JobType jobType, Job.ExperienceLevel level, String skill) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<JobResponse> jobPage = jobRepository.findAll(pageable)
+        Specification<Job> spec = JobSpecification.buildSpecification(keyword, jobType, level, skill);
+        Page<JobResponse> jobPage = jobRepository.findAll(spec, pageable)
                 .map(this::toResponse);
 
         return new JobPageResponse(
@@ -148,8 +151,7 @@ public class JobService {
         );
     }
 
-    public JobPageResponse getOpenJobsForUser(int page, int size){
-
+    public JobPageResponse getOpenJobsForUser(int page, int size, String keyword, Job.JobType jobType, Job.ExperienceLevel level, String skill){
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() ->
@@ -157,7 +159,12 @@ public class JobService {
                                 "User not found with email: " + email));
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<JobResponse> jobPage = jobRepository.findOpenJobsNotAppliedByUser(currentUser.getId(), pageable)
+
+        Specification<Job> spec = JobSpecification.buildSpecification(keyword, jobType, level, skill)
+                .and(JobSpecification.isOpenNow())
+                .and(JobSpecification.notAppliedByUser(currentUser.getId()));
+
+        Page<JobResponse> jobPage = jobRepository.findAll(spec, pageable)
                 .map(this::toResponse);
 
         return new JobPageResponse(
@@ -168,7 +175,6 @@ public class JobService {
                 jobPage.getTotalPages(),
                 jobPage.isLast()
         );
-
     }
 
     private void saveSkills(Job job, List<String> skillNames) {

@@ -1,12 +1,14 @@
 package com.risheek.resume_screener.repository;
 
 import com.risheek.resume_screener.entity.*;
+import com.risheek.resume_screener.specification.JobSpecification;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -145,6 +147,7 @@ class JobRepositoryTest {
         assertTrue(found);
 
     }
+
     @Test
     void shouldFindOpenJobsNotAppliedByUser() {
 
@@ -170,9 +173,10 @@ class JobRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
-                user.getId(),
-                PageRequest.of(0, 10));
+        Specification<Job> spec = JobSpecification.isOpenNow()
+                .and(JobSpecification.notAppliedByUser(user.getId()));
+
+        Page<Job> result = jobRepository.findAll(spec, PageRequest.of(0, 10));
 
         assertEquals(1, result.getTotalElements());
         assertEquals("Backend Developer",
@@ -204,9 +208,10 @@ class JobRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
-                user.getId(),
-                PageRequest.of(0, 10));
+        Specification<Job> spec = JobSpecification.isOpenNow()
+                .and(JobSpecification.notAppliedByUser(user.getId()));
+
+        Page<Job> result = jobRepository.findAll(spec, PageRequest.of(0, 10));
 
         assertTrue(result.isEmpty());
     }
@@ -236,9 +241,10 @@ class JobRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
-                user.getId(),
-                PageRequest.of(0, 10));
+        Specification<Job> spec = JobSpecification.isOpenNow()
+                .and(JobSpecification.notAppliedByUser(user.getId()));
+
+        Page<Job> result = jobRepository.findAll(spec, PageRequest.of(0, 10));
 
         assertTrue(result.isEmpty());
     }
@@ -283,9 +289,10 @@ class JobRepositoryTest {
 
         entityManager.persist(application);
 
-        Page<Job> result = jobRepository.findOpenJobsNotAppliedByUser(
-                user.getId(),
-                PageRequest.of(0, 10));
+        Specification<Job> spec = JobSpecification.isOpenNow()
+                .and(JobSpecification.notAppliedByUser(user.getId()));
+
+        Page<Job> result = jobRepository.findAll(spec, PageRequest.of(0, 10));
 
         assertTrue(result.isEmpty());
     }

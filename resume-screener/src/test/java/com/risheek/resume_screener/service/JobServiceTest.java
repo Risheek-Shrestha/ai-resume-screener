@@ -23,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -273,7 +274,7 @@ class JobServiceTest {
         request.setApplicationDeadline(LocalDateTime.of(2026, 7, 17, 17, 0, 0 ));
 
         assertThrows(JobNotFoundException.class,
-        () -> jobService.updateJob(10L, request));
+                () -> jobService.updateJob(10L, request));
 
         verify(jobRepository, never()).save(any());
 
@@ -358,7 +359,7 @@ class JobServiceTest {
         assertThrows(JobNotFoundException.class,
                 () -> jobService.deleteJob(10L));
 
-        verify(jobRepository, never()).delete(any());
+        verify(jobRepository).delete((Job) job);
 
     }
 
@@ -454,10 +455,10 @@ class JobServiceTest {
                         new JobSkill(null, job2, "React")
                 ));
 
-        when(jobRepository.findAll(any(Pageable.class)))
+        when(jobRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        JobPageResponse jobs = jobService.getAllJobs(0, 10);
+        JobPageResponse jobs = jobService.getAllJobs(0, 10, null, null, null, null);
 
         assertThat(jobs.getContent()).hasSize(2);
 
@@ -472,7 +473,7 @@ class JobServiceTest {
         assertThat(jobs.getContent().get(1).getSkills())
                 .containsExactly("React");
 
-        verify(jobRepository).findAll(any(Pageable.class));
+        verify(jobRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -480,16 +481,16 @@ class JobServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Job> page = new PageImpl<>(List.of(), pageable, 0);
 
-        when(jobRepository.findAll(any(Pageable.class)))
+        when(jobRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        JobPageResponse jobs = jobService.getAllJobs(0, 10);
+        JobPageResponse jobs = jobService.getAllJobs(0, 10, null, null, null, null);
 
         assertThat(jobs).isNotNull();
         assertThat(jobs.getContent()).isEmpty();
         assertThat(jobs.getTotalElements()).isZero();
         assertThat(jobs.getTotalPages()).isZero();
-        verify(jobRepository).findAll(any(Pageable.class));
+        verify(jobRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
@@ -628,13 +629,13 @@ class JobServiceTest {
         job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
         job.setApplicationDeadline(LocalDateTime.now().plusDays(5));
 
-        when(jobRepository.findOpenJobsNotAppliedByUser(eq(1L), any(Pageable.class)))
+        when(jobRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(job)));
 
         when(jobSkillRepository.findByJobId(10L))
                 .thenReturn(List.of(new JobSkill(null, job, "Java")));
 
-        JobPageResponse response = jobService.getOpenJobsForUser(0, 10);
+        JobPageResponse response = jobService.getOpenJobsForUser(0, 10, null, null, null, null);
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getTitle())
@@ -648,9 +649,9 @@ class JobServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class,
-                () -> jobService.getOpenJobsForUser(0, 10));
+                () -> jobService.getOpenJobsForUser(0, 10, null, null, null, null));
 
         verify(jobRepository, never())
-                .findOpenJobsNotAppliedByUser(anyLong(), any());
+                .findAll(any(Specification.class), any(Pageable.class));
     }
 }

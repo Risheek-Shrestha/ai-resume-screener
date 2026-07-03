@@ -180,7 +180,7 @@ class JobControllerTest {
         JobPageResponse response = new JobPageResponse(
                 List.of(job1, job2), 0, 10, 2L, 1, true);
 
-        when(jobService.getAllJobs(0, 10))
+        when(jobService.getAllJobs(0, 10, null, null, null, null))
                 .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/jobs"))
@@ -191,7 +191,7 @@ class JobControllerTest {
                 .andExpect(jsonPath("$.content[1].id").value(2))
                 .andExpect(jsonPath("$.content[1].title").value("Java Intern"));
 
-        verify(jobService).getAllJobs(0, 10);
+        verify(jobService).getAllJobs(0, 10, null, null, null, null);
     }
 
     @Test
@@ -213,7 +213,7 @@ class JobControllerTest {
         JobPageResponse response = new JobPageResponse(
                 List.of(job), 2, 5, 1L, 1, true);
 
-        when(jobService.getAllJobs(2, 5))
+        when(jobService.getAllJobs(2, 5, null, null, null, null))
                 .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/jobs")
@@ -222,7 +222,7 @@ class JobControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(1));
 
-        verify(jobService).getAllJobs(2, 5);
+        verify(jobService).getAllJobs(2, 5, null, null, null, null);
     }
 
     @Test
@@ -360,7 +360,7 @@ class JobControllerTest {
                 true
         );
 
-        when(jobService.getOpenJobsForUser(0, 10))
+        when(jobService.getOpenJobsForUser(0, 10, null, null, null, null))
                 .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/jobs/open"))
@@ -369,7 +369,7 @@ class JobControllerTest {
                 .andExpect(jsonPath("$.content[0].id").value(1))
                 .andExpect(jsonPath("$.content[0].title").value("Backend Engineer"));
 
-        verify(jobService).getOpenJobsForUser(0, 10);
+        verify(jobService).getOpenJobsForUser(0, 10, null, null, null, null);
     }
 
     @Test
@@ -398,7 +398,7 @@ class JobControllerTest {
                 true
         );
 
-        when(jobService.getOpenJobsForUser(2, 5))
+        when(jobService.getOpenJobsForUser(2, 5, null, null, null, null))
                 .thenReturn(response);
 
         mockMvc.perform(get("/api/v1/jobs/open")
@@ -408,7 +408,7 @@ class JobControllerTest {
                 .andExpect(jsonPath("$.content[0].id").value(2))
                 .andExpect(jsonPath("$.content[0].title").value("Java Developer"));
 
-        verify(jobService).getOpenJobsForUser(2, 5);
+        verify(jobService).getOpenJobsForUser(2, 5, null, null, null, null);
     }
 
     @TestConfiguration
