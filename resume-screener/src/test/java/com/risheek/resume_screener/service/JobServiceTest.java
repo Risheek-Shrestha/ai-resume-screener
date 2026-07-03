@@ -359,7 +359,7 @@ class JobServiceTest {
         assertThrows(JobNotFoundException.class,
                 () -> jobService.deleteJob(10L));
 
-        verify(jobRepository).delete((Job) job);
+        verify(jobRepository, never()).delete(any(Job.class));
 
     }
 
