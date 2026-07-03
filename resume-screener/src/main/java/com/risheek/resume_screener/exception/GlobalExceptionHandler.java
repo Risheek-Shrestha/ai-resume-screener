@@ -243,6 +243,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
+    @ExceptionHandler(NotificationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotificationNotFound(
+            NotificationNotFoundException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse error = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                "Notification Not Found",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingRequestParameter(
             MissingServletRequestParameterException ex,

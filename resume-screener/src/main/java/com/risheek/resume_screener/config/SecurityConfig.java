@@ -66,6 +66,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/applications/jobs/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/applications/**").hasRole("ADMIN")
 
+                        .requestMatchers("/api/v1/notifications/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

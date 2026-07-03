@@ -71,4 +71,10 @@ public class Job {
 
     @Column(nullable = false)
     private LocalDateTime applicationDeadline;
+
+    // Tracks whether the "job is now open for applications" broadcast
+    // notification has already been sent, so the scheduled check doesn't
+    // notify users more than once for the same job.
+    @Column(nullable = false)
+    private boolean openNotificationSent = false;
 }

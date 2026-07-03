@@ -6,6 +6,7 @@ import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.ApplicationWindowStatus;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
+import com.risheek.resume_screener.entity.NotificationType;
 import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
@@ -33,11 +34,14 @@ public class JobService {
     private final JobRepository jobRepository;
     private final JobSkillRepository jobSkillRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    public JobService(JobRepository jobRepository, JobSkillRepository jobSkillRepository, UserRepository userRepository) {
+    public JobService(JobRepository jobRepository, JobSkillRepository jobSkillRepository,
+                       UserRepository userRepository, NotificationService notificationService) {
         this.jobRepository = jobRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -61,6 +65,16 @@ public class JobService {
 
         Job savedJob = jobRepository.save(job);
         saveSkills(savedJob, request.getSkills());
+
+        notificationService.notifyAllUsers(
+                NotificationType.JOB_POSTED,
+                "New job posted: " + savedJob.getTitle(),
+                "A new " + savedJob.getJobType().name().replace('_', ' ').toLowerCase() +
+                        " position for " + savedJob.getExperienceLevel().name().toLowerCase() +
+                        " candidates was just posted.",
+                savedJob.getId()
+        );
+
         return toResponse(savedJob);
     }
 
