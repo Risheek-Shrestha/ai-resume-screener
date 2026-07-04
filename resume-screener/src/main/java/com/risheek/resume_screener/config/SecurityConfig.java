@@ -45,7 +45,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/api/v1/jobs/open").hasRole("USER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/jobs/open").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/me").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/jobs/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/jobs/**").hasRole("ADMIN")
@@ -67,6 +67,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/applications/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/v1/notifications/**").authenticated()
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/courses/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/courses/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/courses/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/courses/**").hasRole("ADMIN")
 
                         .anyRequest().authenticated()
                 )

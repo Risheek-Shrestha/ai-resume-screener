@@ -14,8 +14,6 @@ public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificatio
     Optional<Job> findByTitle(String title);
     boolean existsByTitle(String title);
     Page<Job> findByUserId(Long userId, Pageable pageable);
-
-    // Jobs whose application window has just opened and haven't had the
-    // JOB_OPEN_FOR_APPLY broadcast sent yet.
+    boolean existsByEligibleCoursesId(Long id);
     List<Job> findByOpenNotificationSentFalseAndApplicationStartsAtLessThanEqual(LocalDateTime now);
 }

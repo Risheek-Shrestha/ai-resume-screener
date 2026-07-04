@@ -8,8 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "jobs")
@@ -26,9 +26,8 @@ public class Job {
     @Column(nullable = false)
     private String title;
 
-    @Lob
     @NotBlank(message = "Enter job description")
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
     public enum JobType {
@@ -72,9 +71,22 @@ public class Job {
     @Column(nullable = false)
     private LocalDateTime applicationDeadline;
 
-    // Tracks whether the "job is now open for applications" broadcast
-    // notification has already been sent, so the scheduled check doesn't
-    // notify users more than once for the same job.
     @Column(nullable = false)
     private boolean openNotificationSent = false;
+
+    @ManyToMany
+    @JoinTable(
+            name = "job_eligible_courses",
+            joinColumns = @JoinColumn(name = "job_id"),
+            inverseJoinColumns = @JoinColumn(name = "course_id")
+    )
+    private Set<Course> eligibleCourses = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(
+            name = "job_eligible_semesters",
+            joinColumns = @JoinColumn(name = "job_id")
+    )
+    @Column(name = "semester")
+    private Set<Integer> eligibleSemesters = new HashSet<>();
 }

@@ -6,6 +6,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -50,4 +51,30 @@ public class User {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    @NotBlank(message = "Enter phone number")
+    @Column(nullable = false)
+    private String phoneNumber;
+
+    @NotNull(message = "Enter date of birth")
+    @Column(nullable = false)
+    private LocalDate dateOfBirth;
+
+    @Column(columnDefinition = "bytea")
+    private byte[] profilePhotoData;
+
+    private String profilePhotoType;
+
+    @NotBlank(message = "Enter current college")
+    @Column(nullable = false)
+    private String currentCollege;
+
+    @NotNull(message = "Select current course")
+    @ManyToOne
+    @JoinColumn(name = "current_course_id", nullable = false)
+    private Course currentCourse;
+
+    @NotNull(message = "Enter current semester")
+    @Min(value = 1, message = "Semester must be at least 1")
+    private Integer currentSemester;
 }

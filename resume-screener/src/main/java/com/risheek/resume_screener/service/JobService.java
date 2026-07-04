@@ -9,6 +9,7 @@ import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.NotificationType;
 import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
+import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
@@ -83,6 +84,11 @@ public class JobService {
     public JobResponse updateJob(Long id, JobRequest request) {
         Job job = jobRepository.findById(id)
                 .orElseThrow(() -> new JobNotFoundException("Job not found"));
+
+        String currentEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!job.getUser().getEmail().equals(currentEmail)) {
+            throw new UnauthorizedAccessException("You can only edit jobs you posted");
+        }
 
         job.setTitle(request.getTitle());
         job.setDescription(request.getDescription());
