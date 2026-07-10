@@ -13,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -40,6 +41,7 @@ class AdminControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void createAdmin_withNewEmail_returnsCreated() throws Exception {
         AuthRequest request = new AuthRequest();
         request.setUsername("adminuser");
@@ -60,6 +62,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void createAdmin_savesUserWithAdminRoleAndEncodedPassword() throws Exception {
         AuthRequest request = new AuthRequest();
         request.setUsername("adminuser");
@@ -88,6 +91,7 @@ class AdminControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void createAdmin_emailAlreadyExists_returnsBadRequest() throws Exception {
         AuthRequest request = new AuthRequest();
         request.setUsername("adminuser");
