@@ -26,6 +26,13 @@ public class UserResponse {
     private Integer currentSemester;
 
     public static UserResponse from(User user) {
+
+        String courseName = null;
+
+        if (user.getCurrentCourse() != null) {
+            courseName = user.getCurrentCourse().getName();
+        }
+
         return UserResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -34,7 +41,7 @@ public class UserResponse {
                 .phoneNumber(user.getPhoneNumber())
                 .dateOfBirth(user.getDateOfBirth())
                 .currentCollege(user.getCurrentCollege())
-                .currentCourse(user.getCurrentCourse().getName())
+                .currentCourse(courseName)
                 .currentSemester(user.getCurrentSemester())
                 .build();
     }
