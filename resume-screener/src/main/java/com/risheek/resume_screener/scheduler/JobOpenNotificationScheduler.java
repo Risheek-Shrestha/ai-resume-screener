@@ -11,10 +11,6 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 
-// Jobs are created with a future applicationStartsAt, but applications only
-// truly "open" once that moment arrives. This periodically checks for jobs
-// that have just crossed that threshold and sends the JOB_OPEN_FOR_APPLY
-// broadcast notification exactly once per job.
 @Component
 public class JobOpenNotificationScheduler {
 
