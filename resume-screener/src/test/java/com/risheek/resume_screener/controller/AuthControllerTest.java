@@ -2,10 +2,9 @@ package com.risheek.resume_screener.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
-import com.risheek.resume_screener.dto.AuthRequest;
-import com.risheek.resume_screener.dto.RefreshRequest;
-import com.risheek.resume_screener.dto.RegisterRequest;
+import com.risheek.resume_screener.dto.*;
 import com.risheek.resume_screener.entity.Course;
+import com.risheek.resume_screener.entity.PasswordResetToken;
 import com.risheek.resume_screener.entity.RefreshToken;
 import com.risheek.resume_screener.entity.User;
 import com.risheek.resume_screener.jwt.JwtUtil;
@@ -333,5 +332,174 @@ class AuthControllerTest {
                 .andExpect(content().string("Logged out successfully"));
 
         verify(refreshTokenRepository, never()).delete(any());
+    }
+
+    @Test
+    void register_courseNotFound_returnsNotFound() throws Exception {
+        RegisterRequest request = new RegisterRequest();
+        request.setUsername("testuser");
+        request.setEmail("test@example.com");
+        request.setPassword("password123");
+        request.setPhoneNumber("9876543210");
+        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
+        request.setCurrentCollege("Shoolini University");
+        request.setCurrentCourseId(999L);
+        request.setCurrentSemester(2);
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.empty());
+
+        when(courseRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void forgotPassword_existingUser_returnsOk() throws Exception {
+
+        ForgotPasswordRequest request = new ForgotPasswordRequest();
+        request.setEmail("test@example.com");
+
+        User user = new User();
+        user.setEmail("test@example.com");
+
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(user));
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        "If an account exists for that email, a reset link has been sent."
+                ));
+
+        verify(passwordResetTokenRepository).deleteByUser(user);
+        verify(passwordResetTokenRepository).save(any());
+        verify(mailService).sendPasswordResetEmail(eq("test@example.com"), anyString());
+    }
+
+    @Test
+    void forgotPassword_userNotFound_stillReturnsOk() throws Exception {
+
+        ForgotPasswordRequest request = new ForgotPasswordRequest();
+        request.setEmail("missing@example.com");
+
+        when(userRepository.findByEmail("missing@example.com"))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+
+        verify(passwordResetTokenRepository, never()).save(any());
+        verify(mailService, never()).sendPasswordResetEmail(any(), any());
+    }
+
+    @Test
+    void resetPassword_validToken_returnsOk() throws Exception {
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("reset-token");
+        request.setNewPassword("newPassword123");
+
+        User user = new User();
+        user.setPasswordHash("old-password");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken("reset-token");
+        token.setUser(user);
+        token.setExpiryDate(Instant.now().plusSeconds(1800));
+        token.setUsed(false);
+
+        when(passwordResetTokenRepository.findByToken("reset-token"))
+                .thenReturn(Optional.of(token));
+
+        when(passwordEncoder.encode("newPassword123"))
+                .thenReturn("encoded-password");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Password reset successfully"));
+
+        verify(userRepository).save(user);
+        verify(passwordResetTokenRepository).save(token);
+        verify(refreshTokenRepository).deleteByUser(user);
+    }
+
+    @Test
+    void resetPassword_invalidToken_returnsUnauthorized() throws Exception {
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("invalid-token");
+        request.setNewPassword("password");
+
+        when(passwordResetTokenRepository.findByToken("invalid-token"))
+                .thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Invalid or already used reset link"));
+    }
+
+    @Test
+    void resetPassword_usedToken_returnsUnauthorized() throws Exception {
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("used-token");
+        request.setNewPassword("password");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUsed(true);
+
+        when(passwordResetTokenRepository.findByToken("used-token"))
+                .thenReturn(Optional.of(token));
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Invalid or already used reset link"));
+    }
+
+    @Test
+    void resetPassword_expiredToken_returnsUnauthorized() throws Exception {
+
+        ResetPasswordRequest request = new ResetPasswordRequest();
+        request.setToken("expired-token");
+        request.setNewPassword("password");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUsed(false);
+        token.setExpiryDate(Instant.now().minusSeconds(60));
+
+        when(passwordResetTokenRepository.findByToken("expired-token"))
+                .thenReturn(Optional.of(token));
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Reset link expired, please request a new one"));
+
+        verify(passwordResetTokenRepository).delete(token);
     }
 }

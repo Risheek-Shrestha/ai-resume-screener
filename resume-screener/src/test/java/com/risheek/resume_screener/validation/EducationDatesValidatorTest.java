@@ -80,14 +80,8 @@ class EducationDatesValidatorTest {
     }
 
     @Test
-    void isValid_currentWithEndDateAfterStartDate_returnsTrue() {
+    void isValid_currentWithEndDatePresent_returnsFalse() {
         EducationRequest request = buildRequest(LocalDate.of(2020, 1, 1), LocalDate.of(2022, 1, 1), true);
-        assertThat(validator.isValid(request, context)).isTrue();
-    }
-
-    @Test
-    void isValid_currentWithEndDateBeforeStartDate_returnsFalse() {
-        EducationRequest request = buildRequest(LocalDate.of(2022, 1, 1), LocalDate.of(2020, 1, 1), true);
         assertThat(validator.isValid(request, context)).isFalse();
     }
 

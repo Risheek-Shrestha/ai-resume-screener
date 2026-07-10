@@ -1,11 +1,6 @@
     package com.risheek.resume_screener.controller;
 
-    import com.risheek.resume_screener.dto.AuthRequest;
-    import com.risheek.resume_screener.dto.AuthResponse;
-    import com.risheek.resume_screener.dto.ForgotPasswordRequest;
-    import com.risheek.resume_screener.dto.RefreshRequest;
-    import com.risheek.resume_screener.dto.ResetPasswordRequest;
-    import com.risheek.resume_screener.dto.RegisterRequest;
+    import com.risheek.resume_screener.dto.*;
     import com.risheek.resume_screener.entity.Course;
     import com.risheek.resume_screener.exception.CourseNotFoundException;
     import com.risheek.resume_screener.repository.CourseRepository;

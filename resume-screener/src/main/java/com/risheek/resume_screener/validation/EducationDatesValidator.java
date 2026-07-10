@@ -7,21 +7,24 @@ public class EducationDatesValidator implements ConstraintValidator<ValidEducati
 
     @Override
     public boolean isValid(EducationRequest value, jakarta.validation.ConstraintValidatorContext context) {
-        if(value == null){
+        if (value == null) {
             return true;
         }
         Boolean isCurrent = value.getIsCurrent();
         if (isCurrent == null) {
             return true;
         }
-        if (!isCurrent) {
-            if (value.getEndDate() == null) {
-                return false;
-            }
-    }
-        if (value.getStartDate() != null && value.getEndDate() != null) {
-            return !value.getEndDate().isBefore(value.getStartDate());
+
+        if (isCurrent) {
+            return value.getEndDate() == null;
         }
-        return true;
+
+        if (value.getEndDate() == null) {
+            return false;
+        }
+        if (value.getStartDate() == null) {
+            return true;
+        }
+        return !value.getEndDate().isBefore(value.getStartDate());
     }
 }
