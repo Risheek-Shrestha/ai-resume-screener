@@ -2,11 +2,12 @@ package com.risheek.resume_screener.controller;
 
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.UserResponse;
-import com.risheek.resume_screener.jwt.JwtAuthFilter;
+import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.CustomUserDetailService;
 import com.risheek.resume_screener.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -20,7 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(UserController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JacksonAutoConfiguration.class})
 class UserControllerTest {
 
     @Autowired
@@ -30,7 +31,7 @@ class UserControllerTest {
     private UserService userService;
 
     @MockitoBean
-    private JwtAuthFilter jwtAuthFilter;
+    private JwtUtil jwtUtil;
 
     @MockitoBean
     private CustomUserDetailService customUserDetailService;
@@ -63,9 +64,9 @@ class UserControllerTest {
     }
 
     @Test
-    void getCurrentUser_withoutAuthentication_returnsUnauthorized() throws Exception {
+    void getCurrentUser_withoutAuthentication_returnsForbidden() throws Exception {
 
         mockMvc.perform(get("/api/v1/users/me"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden());
     }
 }

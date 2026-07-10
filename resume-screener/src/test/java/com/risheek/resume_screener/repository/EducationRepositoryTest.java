@@ -7,7 +7,6 @@ import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
-import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.junit.jupiter.Container;
@@ -33,9 +32,6 @@ class EducationRepositoryTest extends RepositoryTestHelper {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
     }
-
-    @Autowired
-    private TestEntityManager entityManager;
 
     @Autowired
     private EducationRepository educationRepository;
