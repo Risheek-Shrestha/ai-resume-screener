@@ -70,5 +70,14 @@ public class CourseService {
 
         courseRepository.delete(course);
     }
+
+    public CourseResponse getCourseById(Long id) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() ->
+                        new CourseNotFoundException(
+                                "Course not found with id: " + id));
+
+        return CourseResponse.from(course);
     }
+}
 
