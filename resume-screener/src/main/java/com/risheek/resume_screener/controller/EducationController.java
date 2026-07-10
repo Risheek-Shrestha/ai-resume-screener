@@ -41,4 +41,9 @@ public class EducationController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<EducationResponse> getEducation(@PathVariable Long id) {
+        return ResponseEntity.ok(educationService.getEducation(id));
+    }
+
 }

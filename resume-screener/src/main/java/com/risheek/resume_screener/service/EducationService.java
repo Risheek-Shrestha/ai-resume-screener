@@ -96,4 +96,14 @@ public class EducationService {
         }
         educationRepository.delete(education);
     }
+
+    public EducationResponse getEducation(Long id) {
+        Education education = educationRepository.findById(id)
+                .orElseThrow(() -> new EducationNotFound("Education not found with id: " + id));
+        User user = getCurrentUser();
+        if(!user.getId().equals(education.getUser().getId())) {
+            throw new UnauthorizedAccessException("You are not authorized to view this education");
+        }
+        return toResponse(education);
+    }
 }
