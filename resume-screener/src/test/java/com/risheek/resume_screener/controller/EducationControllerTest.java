@@ -8,6 +8,7 @@ import com.risheek.resume_screener.dto.EducationRequest;
 import com.risheek.resume_screener.dto.EducationResponse;
 import com.risheek.resume_screener.entity.EducationLevel;
 import com.risheek.resume_screener.exception.EducationNotFound;
+import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.CustomUserDetailService;
 import com.risheek.resume_screener.service.EducationService;
@@ -163,5 +164,68 @@ class EducationControllerTest {
         mockMvc.perform(delete("/api/v1/educations/999")
                         .with(SecurityMockMvcRequestPostProcessors.csrf()))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void getEducation_existing_returns200() throws Exception {
+        when(educationService.getEducation(1L)).thenReturn(sampleResponse());
+
+        mockMvc.perform(get("/api/v1/educations/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.institution").value("IIT Delhi"));
+
+        verify(educationService).getEducation(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void getEducation_nonExisting_returns404() throws Exception {
+        when(educationService.getEducation(999L))
+                .thenThrow(new EducationNotFound("Education not found with id: 999"));
+
+        mockMvc.perform(get("/api/v1/educations/999"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @WithMockUser
+    void getEducation_notOwner_returns403() throws Exception {
+        when(educationService.getEducation(5L))
+                .thenThrow(new UnauthorizedAccessException("You are not authorized to view this education"));
+
+        mockMvc.perform(get("/api/v1/educations/5"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser
+    void updateEducation_notOwner_returns403() throws Exception {
+        when(educationService.updateEducation(eq(5L), any(EducationRequest.class)))
+                .thenThrow(new UnauthorizedAccessException("You are not authorized to update this education"));
+
+        mockMvc.perform(put("/api/v1/educations/5")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(sampleRequest())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser
+    void deleteEducation_notOwner_returns403() throws Exception {
+        doThrow(new UnauthorizedAccessException("You are not authorized to delete this education"))
+                .when(educationService).deleteEducation(5L);
+
+        mockMvc.perform(delete("/api/v1/educations/5")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getAllEducations_unauthenticated_isForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/educations"))
+                .andExpect(status().isForbidden());
     }
 }

@@ -14,7 +14,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -77,5 +81,36 @@ class NotificationListenerTest {
         notificationListener.handleNotification(event);
 
         verify(mailService).sendApplicationStatusEmail(event);
+    }
+
+    @Test
+    void handleNotification_userFound_createsInAppNotification() {
+        ApplicationNotificationEvent event = new ApplicationNotificationEvent(
+                "user@example.com", "Backend Developer", ApplicationStatus.APPLIED);
+
+        notificationListener.handleNotification(event);
+
+        verify(notificationService).notifyUser(
+                any(User.class),
+                eq(com.risheek.resume_screener.entity.NotificationType.APPLICATION_STATUS_CHANGED),
+                anyString(),
+                anyString(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void handleNotification_userNotFound_stillSendsEmailButSkipsInAppNotification() {
+        ApplicationNotificationEvent event = new ApplicationNotificationEvent(
+                "unknown@example.com", "Backend Developer", ApplicationStatus.APPLIED);
+
+        lenient().when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        notificationListener.handleNotification(event);
+
+        verify(mailService).sendApplicationStatusEmail(event);
+        verify(notificationService, never()).notifyUser(
+                any(), any(), anyString(), anyString(), any(), any());
     }
 }

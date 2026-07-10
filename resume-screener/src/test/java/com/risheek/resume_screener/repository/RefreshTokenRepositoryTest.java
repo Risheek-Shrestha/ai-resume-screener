@@ -94,4 +94,12 @@ class RefreshTokenRepositoryTest extends RepositoryTestHelper {
 
         assertTrue(remaining.isEmpty());
     }
+
+    @Test
+    void shouldReturnEmpty_whenTokenDoesNotExist() {
+
+        var found = refreshTokenRepository.findByToken("this-token-does-not-exist");
+
+        assertTrue(found.isEmpty());
+    }
 }

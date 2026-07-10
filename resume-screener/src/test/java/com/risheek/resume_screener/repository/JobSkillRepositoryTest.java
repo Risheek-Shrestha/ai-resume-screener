@@ -72,7 +72,7 @@ class JobSkillRepositoryTest extends RepositoryTestHelper {
         entityManager.clear();
 
         List<JobSkill> jobSkills =  jobSkillRepository.findByJobId(currentJob.getId());
-        
+
         assertEquals(2, jobSkills.size());
         assertTrue(jobSkills.stream().anyMatch(r -> r.getSkillName().equals("Docker")));
         assertTrue(jobSkills.stream().anyMatch(r -> r.getSkillName().equals("Kubernetes")));
@@ -116,6 +116,42 @@ class JobSkillRepositoryTest extends RepositoryTestHelper {
         List<JobSkill> remaining = jobSkillRepository.findByJobId(currentJob.getId());
 
         assertTrue(remaining.isEmpty());
+    }
+
+    @Test
+    void shouldReturnEmptyList_whenJobHasNoSkills(){
+
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
+
+        Job job = new Job();
+
+        job.setTitle("DevOps Engineer");
+        job.setDescription("We are looking for a DevOps Engineer with experience in Linux, Docker, Kubernetes, AWS, CI/CD pipelines, Terraform, and monitoring tools. The candidate should automate deployments, manage cloud infrastructure, and improve system reliability.");
+        job.setJobType(Job.JobType.FULL_TIME);
+        job.setExperienceLevel(Job.ExperienceLevel.MID);
+        job.setUser(currentUser);
+        job.setApplicationStartsAt(LocalDateTime.of(2026, 6, 26, 0, 0, 0 ));
+        job.setApplicationDeadline(LocalDateTime.of(2026, 7, 1, 17, 0, 0 ));
+
+        Job currentJob = jobRepository.save(job);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        List<JobSkill> jobSkills = jobSkillRepository.findByJobId(currentJob.getId());
+
+        assertTrue(jobSkills.isEmpty());
+    }
+
+    @Test
+    void shouldReturnEmptyList_whenJobIdDoesNotExist(){
+
+        List<JobSkill> jobSkills = jobSkillRepository.findByJobId(-1L);
+
+        assertTrue(jobSkills.isEmpty());
     }
 
 }

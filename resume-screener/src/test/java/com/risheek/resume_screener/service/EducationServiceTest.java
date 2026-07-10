@@ -212,4 +212,64 @@ class EducationServiceTest {
 
         verify(educationRepository).delete(existing);
     }
+
+    @Test
+    void getEducation_happyPath_returnsMappedResponse() {
+
+        User user = buildUser(1L, "test@example.com");
+        Education existing = buildEducation(5L, user);
+
+        when(educationRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
+        EducationResponse response = educationService.getEducation(5L);
+
+        assertThat(response.getId()).isEqualTo(5L);
+        assertThat(response.getUserId()).isEqualTo(1L);
+        assertThat(response.getInstitution()).isEqualTo("Shoolini University");
+    }
+
+    @Test
+    void getEducation_notFound_throwsException() {
+
+        when(educationRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EducationNotFound.class, () -> educationService.getEducation(99L));
+    }
+
+    @Test
+    void getEducation_notOwner_throwsUnauthorized() {
+
+        User owner = buildUser(2L, "owner@example.com");
+        User requester = buildUser(1L, "test@example.com");
+        Education existing = buildEducation(5L, owner);
+
+        when(educationRepository.findById(5L)).thenReturn(Optional.of(existing));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(requester));
+
+        assertThrows(UnauthorizedAccessException.class, () -> educationService.getEducation(5L));
+    }
+
+    @Test
+    void getAllEducations_noEducations_returnsEmptyList() {
+
+        User user = buildUser(1L, "test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(educationRepository.findByUser(user)).thenReturn(List.of());
+
+        List<EducationResponse> result = educationService.getAllEducations();
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void getAllEducations_authenticatedUserNotInDatabase_throwsUsernameNotFoundException() {
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(
+                org.springframework.security.core.userdetails.UsernameNotFoundException.class,
+                () -> educationService.getAllEducations()
+        );
+    }
 }
