@@ -17,7 +17,7 @@ public class UserResponse {
     private Long id;
     private String username;
     private String email;
-    private String role;
+    private User.Role role;
 
     private String phoneNumber;
     private LocalDate dateOfBirth;
@@ -30,7 +30,7 @@ public class UserResponse {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .role(user.getRole().name())
+                .role(user.getRole())
                 .phoneNumber(user.getPhoneNumber())
                 .dateOfBirth(user.getDateOfBirth())
                 .currentCollege(user.getCurrentCollege())

@@ -2,6 +2,7 @@ package com.risheek.resume_screener.controller;
 
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.UserResponse;
+import com.risheek.resume_screener.entity.User;
 import com.risheek.resume_screener.jwt.JwtUtil;
 import com.risheek.resume_screener.service.CustomUserDetailService;
 import com.risheek.resume_screener.service.UserService;
@@ -44,7 +45,7 @@ class UserControllerTest {
                 .id(1L)
                 .username("testuser")
                 .email("test@example.com")
-                .role("USER")
+                .role(User.Role.USER)
                 .phoneNumber("9876543210")
                 .dateOfBirth(LocalDate.of(2002,1,1))
                 .currentCollege("Shoolini University")
