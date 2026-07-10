@@ -4,13 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.AuthRequest;
 import com.risheek.resume_screener.dto.RefreshRequest;
+import com.risheek.resume_screener.dto.RegisterRequest;
+import com.risheek.resume_screener.entity.Course;
 import com.risheek.resume_screener.entity.RefreshToken;
 import com.risheek.resume_screener.entity.User;
 import com.risheek.resume_screener.jwt.JwtUtil;
+import com.risheek.resume_screener.repository.CourseRepository;
+import com.risheek.resume_screener.repository.PasswordResetTokenRepository;
 import com.risheek.resume_screener.repository.RefreshTokenRepository;
 import com.risheek.resume_screener.repository.UserRepository;
 import com.risheek.resume_screener.service.CustomUserDetailService;
+import com.risheek.resume_screener.service.MailService;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -18,8 +24,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -29,26 +38,49 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JacksonAutoConfiguration.class})
 class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @MockitoBean private UserRepository userRepository;
     @MockitoBean private PasswordEncoder passwordEncoder;
     @MockitoBean private JwtUtil jwtUtil;
     @MockitoBean private RefreshTokenRepository refreshTokenRepository;
     @MockitoBean private CustomUserDetailService customUserDetailService;
+    @MockitoBean
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+
+
+    private final ObjectMapper objectMapper = JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .build();
+
+    @MockitoBean
+    private MailService mailService;
+
+    @MockitoBean
+    private CourseRepository courseRepository;
 
     @Test
     void register_withNewEmail_returnsCreated() throws Exception {
-        AuthRequest request = new AuthRequest();
+        RegisterRequest request = new RegisterRequest();
         request.setUsername("testuser");
         request.setEmail("test@example.com");
         request.setPassword("password123");
+        request.setPhoneNumber("9876543210");
+        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
+        request.setCurrentCollege("Shoolini University");
+        request.setCurrentCourseId(1L);
+        request.setCurrentSemester(2);
+
+        Course course = new Course();
+        course.setId(1L);
+
+        when(courseRepository.findById(1L))
+                .thenReturn(Optional.of(course));
 
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("password123")).thenReturn("hashed-password");
@@ -65,10 +97,21 @@ class AuthControllerTest {
 
     @Test
     void register_emailAlreadyExists_returnsBadRequest() throws Exception {
-        AuthRequest request = new AuthRequest();
+        RegisterRequest request = new RegisterRequest();
         request.setUsername("testuser");
         request.setEmail("test@example.com");
         request.setPassword("password123");
+        request.setPhoneNumber("9876543210");
+        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
+        request.setCurrentCollege("Shoolini University");
+        request.setCurrentCourseId(1L);
+        request.setCurrentSemester(2);
+
+        Course course = new Course();
+        course.setId(1L);
+
+        when(courseRepository.findById(1L))
+                .thenReturn(Optional.of(course));
 
         User existingUser = new User();
         existingUser.setEmail("test@example.com");

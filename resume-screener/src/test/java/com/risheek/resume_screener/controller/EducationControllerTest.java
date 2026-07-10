@@ -1,6 +1,8 @@
 package com.risheek.resume_screener.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.EducationRequest;
 import com.risheek.resume_screener.dto.EducationResponse;
@@ -11,6 +13,7 @@ import com.risheek.resume_screener.service.CustomUserDetailService;
 import com.risheek.resume_screener.service.EducationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -35,14 +38,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(EducationController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, JacksonAutoConfiguration.class})
 class EducationControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = JsonMapper.builder()
+            .addModule(new JavaTimeModule())
+            .build();
 
     @MockitoBean
     private EducationService educationService;

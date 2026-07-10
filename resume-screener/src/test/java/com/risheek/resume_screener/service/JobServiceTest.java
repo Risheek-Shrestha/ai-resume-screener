@@ -525,8 +525,13 @@ class JobServiceTest {
     @Test
     void updateJob_InvalidApplicationWindow() {
 
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
         Job job = new Job();
         job.setId(10L);
+        job.setUser(user);
 
         when(jobRepository.findById(10L))
                 .thenReturn(Optional.of(job));
@@ -586,8 +591,13 @@ class JobServiceTest {
     @Test
     void updateJob_NullSkills() {
 
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
         Job job = new Job();
         job.setId(10L);
+        job.setUser(user);
 
         when(jobRepository.findById(10L))
                 .thenReturn(Optional.of(job));

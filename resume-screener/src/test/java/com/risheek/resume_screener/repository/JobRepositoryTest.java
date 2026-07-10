@@ -2,6 +2,7 @@ package com.risheek.resume_screener.repository;
 
 import com.risheek.resume_screener.entity.*;
 import com.risheek.resume_screener.specification.JobSpecification;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -21,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class JobRepositoryTest {
+class JobRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -40,20 +41,13 @@ class JobRepositoryTest {
     @Autowired
     private JobRepository jobRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
     @Test
     void shouldCreateAndFindJob(){
 
-        User user = new User();
-
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
 
@@ -82,14 +76,10 @@ class JobRepositoryTest {
     @Test
     void shouldFindByTitle(){
 
-        User user = new User();
-
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
 
@@ -118,14 +108,10 @@ class JobRepositoryTest {
     @Test
     void shouldExistsByTitle(){
 
-        User user = new User();
-
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
 
@@ -151,13 +137,10 @@ class JobRepositoryTest {
     @Test
     void shouldFindOpenJobsNotAppliedByUser() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheek@gmail.com");
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-
-        user = userRepository.save(user);
+        User user = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
         job.setTitle("Backend Developer");
@@ -186,13 +169,10 @@ class JobRepositoryTest {
     @Test
     void shouldNotReturnClosedJobs() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheek@gmail.com");
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-
-        user = userRepository.save(user);
+        User user = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
         job.setTitle("Closed Job");
@@ -219,13 +199,10 @@ class JobRepositoryTest {
     @Test
     void shouldNotReturnJobsNotStartedYet() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheek@gmail.com");
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-
-        user = userRepository.save(user);
+        User user = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
         job.setTitle("Future Job");
@@ -252,13 +229,10 @@ class JobRepositoryTest {
     @Test
     void shouldExcludeAppliedJobs() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheek@gmail.com");
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-
-        user = userRepository.save(user);
+        User user = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
         job.setTitle("Backend");
@@ -288,6 +262,8 @@ class JobRepositoryTest {
         application.setStatus(ApplicationStatus.APPLIED);
 
         entityManager.persist(application);
+        entityManager.flush();
+        entityManager.clear();
 
         Specification<Job> spec = JobSpecification.isOpenNow()
                 .and(JobSpecification.notAppliedByUser(user.getId()));

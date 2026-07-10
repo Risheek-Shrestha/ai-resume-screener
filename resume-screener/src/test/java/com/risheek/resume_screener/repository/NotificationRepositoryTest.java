@@ -3,6 +3,7 @@ package com.risheek.resume_screener.repository;
 import com.risheek.resume_screener.entity.Notification;
 import com.risheek.resume_screener.entity.NotificationType;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class NotificationRepositoryTest {
+class NotificationRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -37,18 +38,6 @@ class NotificationRepositoryTest {
 
     @Autowired
     private NotificationRepository notificationRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    private User createUser(String username, String email) {
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-        return userRepository.save(user);
-    }
 
     private Notification createNotification(User user, NotificationType type, boolean read) {
         Notification notification = new Notification();

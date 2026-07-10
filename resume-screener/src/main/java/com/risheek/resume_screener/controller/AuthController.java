@@ -5,6 +5,10 @@
     import com.risheek.resume_screener.dto.ForgotPasswordRequest;
     import com.risheek.resume_screener.dto.RefreshRequest;
     import com.risheek.resume_screener.dto.ResetPasswordRequest;
+    import com.risheek.resume_screener.dto.RegisterRequest;
+    import com.risheek.resume_screener.entity.Course;
+    import com.risheek.resume_screener.exception.CourseNotFoundException;
+    import com.risheek.resume_screener.repository.CourseRepository;
     import com.risheek.resume_screener.entity.PasswordResetToken;
     import com.risheek.resume_screener.entity.RefreshToken;
     import com.risheek.resume_screener.entity.User;
@@ -33,28 +37,46 @@
         private final RefreshTokenRepository refreshTokenRepository;
         private final PasswordResetTokenRepository passwordResetTokenRepository;
         private final MailService mailService;
+        private final CourseRepository courseRepository;
 
-        public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, RefreshTokenRepository refreshTokenRepository, PasswordResetTokenRepository passwordResetTokenRepository, MailService mailService) {
+        public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil, RefreshTokenRepository refreshTokenRepository, PasswordResetTokenRepository passwordResetTokenRepository, MailService mailService, CourseRepository courseRepository) {
             this.userRepository = userRepository;
             this.passwordEncoder = passwordEncoder;
             this.jwtUtil = jwtUtil;
             this.refreshTokenRepository = refreshTokenRepository;
             this.passwordResetTokenRepository = passwordResetTokenRepository;
             this.mailService = mailService;
+            this.courseRepository = courseRepository;
         }
 
         @PostMapping("/register")
-        public ResponseEntity<String> register(@RequestBody AuthRequest request) {
+        public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
+
             if (userRepository.findByEmail(request.getEmail()).isPresent()) {
                 return ResponseEntity.badRequest().body("Email already exists");
             }
+
+            Course course = courseRepository.findById(request.getCurrentCourseId())
+                    .orElseThrow(() ->
+                            new CourseNotFoundException(
+                                    "Course not found with id: " + request.getCurrentCourseId()));
+
             User user = new User();
             user.setUsername(request.getUsername());
             user.setEmail(request.getEmail());
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
             user.setRole(User.Role.USER);
+
+            user.setPhoneNumber(request.getPhoneNumber());
+            user.setDateOfBirth(request.getDateOfBirth());
+            user.setCurrentCollege(request.getCurrentCollege());
+            user.setCurrentCourse(course);
+            user.setCurrentSemester(request.getCurrentSemester());
+
             userRepository.save(user);
-            return ResponseEntity.status(201).body("User registered successfully");
+
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body("User registered successfully");
         }
 
         @PostMapping("/login")
@@ -108,21 +130,18 @@
         @PostMapping("/forgot-password")
         public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
             userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-                // Invalidate any previous outstanding tokens for this user.
                 passwordResetTokenRepository.deleteByUser(user);
 
                 PasswordResetToken resetToken = new PasswordResetToken();
                 resetToken.setToken(UUID.randomUUID().toString());
                 resetToken.setUser(user);
-                resetToken.setExpiryDate(Instant.now().plusSeconds(30 * 60)); // 30 minutes
+                resetToken.setExpiryDate(Instant.now().plusSeconds(30 * 60));
                 resetToken.setUsed(false);
                 passwordResetTokenRepository.save(resetToken);
 
                 mailService.sendPasswordResetEmail(user.getEmail(), resetToken.getToken());
             });
 
-            // Always return the same response, whether or not the email exists,
-            // so we don't leak which addresses are registered.
             return ResponseEntity.ok("If an account exists for that email, a reset link has been sent.");
         }
 
@@ -148,8 +167,6 @@
             resetToken.setUsed(true);
             passwordResetTokenRepository.save(resetToken);
 
-            // Invalidate existing sessions so old refresh tokens can't be used
-            // after a password reset.
             refreshTokenRepository.deleteByUser(user);
 
             return ResponseEntity.ok("Password reset successfully");

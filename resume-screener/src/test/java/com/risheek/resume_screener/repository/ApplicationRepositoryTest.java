@@ -1,6 +1,7 @@
 package com.risheek.resume_screener.repository;
 
 import com.risheek.resume_screener.entity.*;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class ApplicationRepositoryTest {
+class ApplicationRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -34,6 +35,7 @@ class ApplicationRepositoryTest {
 
     @Autowired
     private ApplicationRepository applicationRepository;
+
     @Autowired
     private TestEntityManager entityManager;
 
@@ -166,12 +168,7 @@ class ApplicationRepositoryTest {
                                           BigDecimal scoreValue,
                                           ApplicationStatus status) {
 
-        User user = new User();
-        user.setUsername("user");
-        user.setEmail(email);
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-        entityManager.persist(user);
+        User user = createUser("user", email);
 
         Job job = new Job();
         job.setTitle(title);
@@ -209,7 +206,6 @@ class ApplicationRepositoryTest {
         application.setStatus(status);
 
         entityManager.persist(application);
-
         entityManager.flush();
 
         return application;
@@ -220,12 +216,7 @@ class ApplicationRepositoryTest {
                                                         BigDecimal scoreValue,
                                                         ApplicationStatus status) {
 
-        User user = new User();
-        user.setUsername("user");
-        user.setEmail(email);
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-        entityManager.persist(user);
+        User user = createUser("user", email);
 
         Resume resume = new Resume();
         resume.setUser(user);
@@ -253,7 +244,6 @@ class ApplicationRepositoryTest {
         application.setStatus(status);
 
         entityManager.persist(application);
-
         entityManager.flush();
 
         return application;

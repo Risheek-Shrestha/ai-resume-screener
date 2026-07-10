@@ -3,6 +3,7 @@ package com.risheek.resume_screener.repository;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -20,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class JobSkillRepositoryTest {
+class JobSkillRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -40,22 +41,15 @@ class JobSkillRepositoryTest {
     private JobRepository jobRepository;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private JobSkillRepository jobSkillRepository;
 
     @Test
     void shouldFindSkillsByJobId(){
 
-        User user = new User();
-
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         Job job = new Job();
 
@@ -72,7 +66,7 @@ class JobSkillRepositoryTest {
         JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
         JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
 
-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
+        jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
 
         entityManager.flush();
         entityManager.clear();
@@ -88,14 +82,11 @@ class JobSkillRepositoryTest {
     @Test
     void shouldDeleteSkillsByJobId(){
 
-        User user = new User();
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
 
         Job job = new Job();
 
@@ -112,7 +103,7 @@ class JobSkillRepositoryTest {
         JobSkill jobSkill1 = new JobSkill(null, currentJob, "Docker");
         JobSkill jobSkill2 = new JobSkill(null, currentJob, "Kubernetes");
 
-        List<JobSkill> savedSkills = jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
+        jobSkillRepository.saveAll(List.of(jobSkill1, jobSkill2));
 
         entityManager.flush();
         entityManager.clear();

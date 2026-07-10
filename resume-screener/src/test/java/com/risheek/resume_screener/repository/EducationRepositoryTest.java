@@ -3,6 +3,7 @@ package com.risheek.resume_screener.repository;
 import com.risheek.resume_screener.entity.Education;
 import com.risheek.resume_screener.entity.EducationLevel;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -20,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class EducationRepositoryTest {
+class EducationRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -38,18 +39,6 @@ class EducationRepositoryTest {
 
     @Autowired
     private EducationRepository educationRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    private User createUser(String username, String email) {
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-        return userRepository.save(user);
-    }
 
     @Test
     void shouldCreateAndFindEducationByUser() {
@@ -104,6 +93,7 @@ class EducationRepositoryTest {
         education1.setEndDate(LocalDate.of(2024, 6, 30));
         education1.setGrade("B");
         education1.setIsCurrent(false);
+
         educationRepository.save(education1);
 
         Education education2 = new Education();
@@ -114,6 +104,7 @@ class EducationRepositoryTest {
         education2.setEndDate(null);
         education2.setGrade("A");
         education2.setIsCurrent(true);
+
         educationRepository.save(education2);
 
         entityManager.flush();

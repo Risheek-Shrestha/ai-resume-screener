@@ -3,6 +3,7 @@ package com.risheek.resume_screener.repository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.entity.*;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -22,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class ScoreRepositoryTest {
+class ScoreRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
@@ -36,18 +37,11 @@ class ScoreRepositoryTest {
 
     @Autowired private ScoreRepository scoreRepository;
     @Autowired private ResumeRepository resumeRepository;
-    @Autowired private JobSkillRepository jobSkillRepository;
     @Autowired private JobRepository jobRepository;
-    @Autowired private UserRepository userRepository;
     @Autowired private TestEntityManager entityManager;
 
     private User savedUser(String username, String email) {
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPasswordHash("password@1234");
-        user.setRole(User.Role.USER);
-        return userRepository.save(user);
+        return createUser(username, email);
     }
 
     private Job savedJob(User owner) {
@@ -100,7 +94,12 @@ class ScoreRepositoryTest {
         assertEquals(currentUser.getId(), found.get().getUser().getId());
         assertEquals(currentJob.getId(), found.get().getJob().getId());
 
-        List<String> actualMatched = objectMapper.readValue(found.get().getMatchedKeywords(), List.class);
+        List<String> actualMatched =
+                objectMapper.readValue(
+                        found.get().getMatchedKeywords(),
+                        objectMapper.getTypeFactory()
+                                .constructCollectionType(List.class, String.class)
+                );
         assertEquals(List.of("Docker", "Kubernetes"), actualMatched);
     }
 
@@ -130,7 +129,12 @@ class ScoreRepositoryTest {
         assertTrue(found.isPresent());
         assertEquals(0, BigDecimal.valueOf(85.5).compareTo(found.get().getOverallScore()));
 
-        List<String> actualMatched = objectMapper.readValue(found.get().getMatchedKeywords(), List.class);
+        List<String> actualMatched =
+                objectMapper.readValue(
+                        found.get().getMatchedKeywords(),
+                        objectMapper.getTypeFactory()
+                                .constructCollectionType(List.class, String.class)
+                );
         assertEquals(List.of("Docker", "Kubernetes"), actualMatched);
     }
 

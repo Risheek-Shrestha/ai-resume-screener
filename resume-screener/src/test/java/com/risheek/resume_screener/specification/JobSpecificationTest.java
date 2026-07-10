@@ -5,7 +5,7 @@ import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.User;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
-import com.risheek.resume_screener.repository.UserRepository;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class JobSpecificationTest {
+class JobSpecificationTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -49,21 +49,16 @@ class JobSpecificationTest {
     @Autowired
     private JobSkillRepository jobSkillRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
     private User user;
     private Job backendJob;
     private Job internshipJob;
 
     @BeforeEach
     void setUp() {
-        user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheek@gmail.com");
-        user.setPasswordHash("password");
-        user.setRole(User.Role.USER);
-        user = userRepository.save(user);
+        user = createUser(
+                "Risheek",
+                "risheek@gmail.com"
+        );
 
         backendJob = new Job();
         backendJob.setTitle("Senior Backend Engineer");
@@ -212,7 +207,6 @@ class JobSpecificationTest {
 
     @Test
     void buildSpecification_contradictoryFilters_returnsNothing() {
-        // keyword matches backendJob, but jobType matches only internshipJob -> AND yields nothing
         Specification<Job> spec = JobSpecification.buildSpecification(
                 "backend", Job.JobType.INTERNSHIP, null, null);
 

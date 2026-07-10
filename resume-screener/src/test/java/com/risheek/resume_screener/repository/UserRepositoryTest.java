@@ -1,6 +1,7 @@
 package com.risheek.resume_screener.repository;
 
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class UserRepositoryTest {
+class UserRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -30,41 +31,40 @@ class UserRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private TestEntityManager entityManager;
 
     @Test
-    void shouldRegisterandRetrieveUser(){
+    void shouldRegisterAndRetrieveUser() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
-
-        var found = userRepository.findById(currentUser.getId());
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         entityManager.flush();
         entityManager.clear();
+
+        var found = userRepository.findById(currentUser.getId());
 
         assertTrue(found.isPresent());
         assertEquals("Risheek", found.get().getUsername());
         assertEquals("risheekshrestha@gmail.com", found.get().getEmail());
         assertEquals(User.Role.USER, found.get().getRole());
+        assertEquals("9876543210", found.get().getPhoneNumber());
+        assertEquals("Shoolini University", found.get().getCurrentCollege());
+        assertEquals(2, found.get().getCurrentSemester());
+        assertNotNull(found.get().getCurrentCourse());
     }
 
     @Test
-    void shouldFindByEmail(){
+    void shouldFindByEmail() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         entityManager.flush();
         entityManager.clear();
@@ -78,21 +78,18 @@ class UserRepositoryTest {
     }
 
     @Test
-    void shouldExistByEmail(){
+    void shouldExistByEmail() {
 
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-
-        User currentUser =  userRepository.save(user);
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         entityManager.flush();
         entityManager.clear();
 
         boolean found = userRepository.existsByEmail(currentUser.getEmail());
+
         assertTrue(found);
     }
-
 }

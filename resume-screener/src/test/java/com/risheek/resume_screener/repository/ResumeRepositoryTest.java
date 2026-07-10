@@ -1,8 +1,8 @@
 package com.risheek.resume_screener.repository;
 
-import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.Resume;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -13,14 +13,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class ResumeRepositoryTest {
+class ResumeRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
@@ -33,16 +32,13 @@ class ResumeRepositoryTest {
     }
 
     @Autowired private ResumeRepository resumeRepository;
-    @Autowired private UserRepository userRepository;
     @Autowired private TestEntityManager entityManager;
 
     private User savedUser() {
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-        return userRepository.save(user);
+        return createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
     }
 
     @Test
@@ -101,19 +97,15 @@ class ResumeRepositoryTest {
 
     @Test
     void shouldReturnEmptyWhenResumeBelongsToDifferentUser() {
-        User userA = new User();
-        userA.setUsername("Risheek");
-        userA.setEmail("risheekshrestha@gmail.com");
-        userA.setPasswordHash("risheek@1234");
-        userA.setRole(User.Role.USER);
-        User savedUserA = userRepository.save(userA);
+        User savedUserA = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
-        User userB = new User();
-        userB.setUsername("OtherUser");
-        userB.setEmail("otheruser@gmail.com");
-        userB.setPasswordHash("other@1234");
-        userB.setRole(User.Role.USER);
-        User savedUserB = userRepository.save(userB);
+        User savedUserB = createUser(
+                "OtherUser",
+                "otheruser@gmail.com"
+        );
 
         Resume resume = new Resume();
         resume.setUser(savedUserA);

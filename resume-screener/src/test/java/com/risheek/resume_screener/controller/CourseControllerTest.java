@@ -50,6 +50,7 @@ class CourseControllerTest {
     private CustomUserDetailService customUserDetailService;
 
     @Test
+    @WithMockUser
     void getAllCourses_returnsList() throws Exception {
 
         CourseResponse response = new CourseResponse(1L, "MCA", 2);

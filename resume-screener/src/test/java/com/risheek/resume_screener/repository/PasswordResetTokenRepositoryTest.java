@@ -2,6 +2,7 @@ package com.risheek.resume_screener.repository;
 
 import com.risheek.resume_screener.entity.PasswordResetToken;
 import com.risheek.resume_screener.entity.User;
+import com.risheek.resume_screener.util.RepositoryTestHelper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
 @Testcontainers
-class PasswordResetTokenRepositoryTest {
+class PasswordResetTokenRepositoryTest extends RepositoryTestHelper {
 
     @Container
     static PostgreSQLContainer postgres =
@@ -33,23 +34,20 @@ class PasswordResetTokenRepositoryTest {
 
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
+
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private TestEntityManager entityManager;
 
-    private User createUser() {
-        User user = new User();
-        user.setUsername("Risheek");
-        user.setEmail("risheekshrestha@gmail.com");
-        user.setPasswordHash("risheek@1234");
-        user.setRole(User.Role.USER);
-        return userRepository.save(user);
-    }
-
     @Test
     void shouldFindByToken() {
-        User currentUser = createUser();
+
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         PasswordResetToken token = new PasswordResetToken();
         token.setUser(currentUser);
@@ -62,19 +60,26 @@ class PasswordResetTokenRepositoryTest {
         entityManager.clear();
 
         var found = passwordResetTokenRepository.findByToken("resettoken123");
+
         assertTrue(found.isPresent());
         assertEquals("resettoken123", found.get().getToken());
     }
 
     @Test
     void shouldReturnEmptyWhenTokenNotFound() {
+
         var found = passwordResetTokenRepository.findByToken("doesnotexist");
+
         assertTrue(found.isEmpty());
     }
 
     @Test
     void shouldDeleteByUser() {
-        User currentUser = createUser();
+
+        User currentUser = createUser(
+                "Risheek",
+                "risheekshrestha@gmail.com"
+        );
 
         PasswordResetToken token = new PasswordResetToken();
         token.setUser(currentUser);
@@ -86,13 +91,17 @@ class PasswordResetTokenRepositoryTest {
         entityManager.flush();
         entityManager.clear();
 
-        User managedUser = userRepository.findById(currentUser.getId()).orElseThrow();
+        User managedUser =
+                userRepository.findById(currentUser.getId()).orElseThrow();
+
         passwordResetTokenRepository.deleteByUser(managedUser);
 
         entityManager.flush();
         entityManager.clear();
 
-        var remaining = passwordResetTokenRepository.findByToken("resettoken456");
+        var remaining =
+                passwordResetTokenRepository.findByToken("resettoken456");
+
         assertTrue(remaining.isEmpty());
     }
 }
