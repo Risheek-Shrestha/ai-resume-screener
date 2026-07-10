@@ -28,8 +28,6 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
-    // Used for the APPLICATION_STATUS_CHANGED notification, which only goes
-    // to the one candidate whose application changed.
     public void notifyUser(User user, NotificationType type, String title, String message,
                             Long jobId, Long applicationId) {
         Notification notification = new Notification();
@@ -42,9 +40,6 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
-    // Used for JOB_POSTED / JOB_OPEN_FOR_APPLY, which go out to every
-    // candidate (USER role). Fanned out as one row per recipient so
-    // read/unread state stays per-user.
     public void notifyAllUsers(NotificationType type, String title, String message, Long jobId) {
         List<User> recipients = userRepository.findAllByRole(User.Role.USER);
 
