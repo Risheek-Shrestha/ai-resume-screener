@@ -149,6 +149,29 @@ class UserControllerTest {
         verify(userService, never()).createUser(any());
     }
 
+    @Test
+    void register_courseNotFound_returnsNotFound() throws Exception {
+
+        RegisterRequest request = new RegisterRequest();
+        request.setUsername("newuser");
+        request.setEmail("new@example.com");
+        request.setPassword("password123");
+        request.setPhoneNumber("9876543210");
+        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
+        request.setCurrentCollege("Shoolini University");
+        request.setCurrentCourseId(999L);
+        request.setCurrentSemester(2);
+
+        when(userService.createUser(any(RegisterRequest.class)))
+                .thenThrow(new CourseNotFoundException("Course not found with id: 999"));
+
+        mockMvc.perform(post("/api/v1/users/register")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound());
+    }
+
     // ----- PUT /me -----
 
     @Test

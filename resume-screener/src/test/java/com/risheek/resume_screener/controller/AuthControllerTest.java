@@ -3,12 +3,10 @@ package com.risheek.resume_screener.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.risheek.resume_screener.config.SecurityConfig;
 import com.risheek.resume_screener.dto.*;
-import com.risheek.resume_screener.entity.Course;
 import com.risheek.resume_screener.entity.PasswordResetToken;
 import com.risheek.resume_screener.entity.RefreshToken;
 import com.risheek.resume_screener.entity.User;
 import com.risheek.resume_screener.jwt.JwtUtil;
-import com.risheek.resume_screener.repository.CourseRepository;
 import com.risheek.resume_screener.repository.PasswordResetTokenRepository;
 import com.risheek.resume_screener.repository.RefreshTokenRepository;
 import com.risheek.resume_screener.repository.UserRepository;
@@ -27,7 +25,6 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -59,72 +56,6 @@ class AuthControllerTest {
 
     @MockitoBean
     private MailService mailService;
-
-    @MockitoBean
-    private CourseRepository courseRepository;
-
-    @Test
-    void register_withNewEmail_returnsCreated() throws Exception {
-        RegisterRequest request = new RegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
-        request.setPhoneNumber("9876543210");
-        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
-        request.setCurrentCollege("Shoolini University");
-        request.setCurrentCourseId(1L);
-        request.setCurrentSemester(2);
-
-        Course course = new Course();
-        course.setId(1L);
-
-        when(courseRepository.findById(1L))
-                .thenReturn(Optional.of(course));
-
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode("password123")).thenReturn("hashed-password");
-
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(content().string("User registered successfully"));
-
-        verify(userRepository).save(any(User.class));
-    }
-
-    @Test
-    void register_emailAlreadyExists_returnsBadRequest() throws Exception {
-        RegisterRequest request = new RegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
-        request.setPhoneNumber("9876543210");
-        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
-        request.setCurrentCollege("Shoolini University");
-        request.setCurrentCourseId(1L);
-        request.setCurrentSemester(2);
-
-        Course course = new Course();
-        course.setId(1L);
-
-        when(courseRepository.findById(1L))
-                .thenReturn(Optional.of(course));
-
-        User existingUser = new User();
-        existingUser.setEmail("test@example.com");
-
-        when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.of(existingUser));
-
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Email already exists"));
-    }
 
     @Test
     void login_validCredentials_returnsSuccessWithToken() throws Exception {
@@ -332,33 +263,6 @@ class AuthControllerTest {
                 .andExpect(content().string("Logged out successfully"));
 
         verify(refreshTokenRepository, never()).delete(any());
-    }
-
-    @Test
-    void register_courseNotFound_returnsNotFound() throws Exception {
-        RegisterRequest request = new RegisterRequest();
-        request.setUsername("testuser");
-        request.setEmail("test@example.com");
-        request.setPassword("password123");
-        request.setPhoneNumber("9876543210");
-        request.setDateOfBirth(LocalDate.of(2002, 1, 1));
-        request.setCurrentCollege("Shoolini University");
-        request.setCurrentCourseId(999L);
-        request.setCurrentSemester(2);
-
-        when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.empty());
-
-        when(courseRepository.findById(999L))
-                .thenReturn(Optional.empty());
-
-        mockMvc.perform(post("/api/v1/auth/register")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isNotFound());
-
-        verify(userRepository, never()).save(any());
     }
 
     @Test

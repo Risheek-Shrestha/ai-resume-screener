@@ -140,6 +140,34 @@ class CourseControllerTest {
                 .andExpect(status().is4xxClientError());
     }
 
+    @Test
+    @WithMockUser
+    void getCourseById_existing_returns200() throws Exception {
+
+        CourseResponse response = new CourseResponse(1L, "MCA", 2);
+
+        when(courseService.getCourseById(1L)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/courses/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("MCA"))
+                .andExpect(jsonPath("$.totalYears").value(2));
+
+        verify(courseService).getCourseById(1L);
+    }
+
+    @Test
+    @WithMockUser
+    void getCourseById_nonExisting_returns404() throws Exception {
+
+        when(courseService.getCourseById(99L))
+                .thenThrow(new CourseNotFoundException("Course not found with id: 99"));
+
+        mockMvc.perform(get("/api/v1/courses/99"))
+                .andExpect(status().isNotFound());
+    }
+
     @TestConfiguration
     static class CacheTestConfig {
         @Bean

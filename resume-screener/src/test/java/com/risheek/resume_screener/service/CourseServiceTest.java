@@ -170,4 +170,29 @@ class CourseServiceTest {
 
         verify(courseRepository).delete(course);
     }
+
+    @Test
+    void getCourseById_happyPath_returnsMappedResponse() {
+
+        Course course = new Course();
+        course.setId(1L);
+        course.setName("MCA");
+        course.setTotalYears(2);
+
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course));
+
+        CourseResponse response = courseService.getCourseById(1L);
+
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getName()).isEqualTo("MCA");
+        assertThat(response.getTotalYears()).isEqualTo(2);
+    }
+
+    @Test
+    void getCourseById_notFound_throwsException() {
+
+        when(courseRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(CourseNotFoundException.class, () -> courseService.getCourseById(99L));
+    }
 }
