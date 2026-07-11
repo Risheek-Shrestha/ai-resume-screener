@@ -38,7 +38,12 @@ public class Application {
     @JoinColumn(name = "resume_id")
     private Resume resume;
 
-    @OneToOne
+    // ManyToOne (not OneToOne): with re-applies now allowed, ApplicationService
+    // reuses an existing Score row when the same resume is scored against the
+    // same job again, so more than one Application can legitimately point at
+    // the same Score. OneToOne implicitly enforced a unique constraint on
+    // score_id, which broke re-applying with the same resume.
+    @ManyToOne
     @JoinColumn(name = "score_id")
     private Score score;
 

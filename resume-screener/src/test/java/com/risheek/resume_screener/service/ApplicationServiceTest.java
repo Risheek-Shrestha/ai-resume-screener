@@ -361,14 +361,14 @@ class ApplicationServiceTest {
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(employer));
         when(applicationRepository.findByJobIdAndStatusOrderByScoreOverallScoreDesc(
-                10L, ApplicationStatus.APPLIED)).thenReturn(List.of());
+                10L, ApplicationStatus.HIRED)).thenReturn(List.of());
 
         List<ApplicationResponse> responses = applicationService.getAcceptedApplicationsForJob(10L);
 
         assertNotNull(responses);
         assertTrue(responses.isEmpty());
         verify(applicationRepository)
-                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(10L, ApplicationStatus.APPLIED);
+                .findByJobIdAndStatusOrderByScoreOverallScoreDesc(10L, ApplicationStatus.HIRED);
     }
 
     @Test

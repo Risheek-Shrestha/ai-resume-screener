@@ -242,7 +242,7 @@ class ResumeControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void downloadResumeForApplication_returns200() throws Exception {
 
         ResumeResponse response =
@@ -268,7 +268,7 @@ class ResumeControllerTest {
     }
 
     @Test
-    @WithMockUser
+    @WithMockUser(roles = "ADMIN")
     void downloadResumeForApplication_returnsPdf() throws Exception {
 
         ResumeResponse response =
