@@ -58,8 +58,13 @@ public class ApplicationService {
             }
         }
 
-        if (applicationRepository.existsByUserIdAndJobId(currentUser.getId(), currentJob.getId())) {
-            throw new DuplicateApplicationException("User has already applied for this job");
+        // Only block re-applying while a previous application is still
+        // "active" (APPLIED, SHORTLISTED, or HIRED). Once REJECTED, the user
+        // is free to apply again - e.g. with an updated/new resume - and can
+        // do so as many times as they like.
+        if (applicationRepository.existsByUserIdAndJobIdAndStatusNot(
+                currentUser.getId(), currentJob.getId(), ApplicationStatus.REJECTED)) {
+            throw new DuplicateApplicationException("User already has an active application for this job");
         }
 
         if (scoreRepository.findByResumeIdAndJobId(resume.getId(), currentJob.getId()).isEmpty()) {

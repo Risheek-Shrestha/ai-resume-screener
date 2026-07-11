@@ -3,6 +3,8 @@ package com.risheek.resume_screener.service;
 import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
+import com.risheek.resume_screener.entity.Application;
+import com.risheek.resume_screener.entity.ApplicationStatus;
 import com.risheek.resume_screener.entity.ApplicationWindowStatus;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
@@ -11,6 +13,7 @@ import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
+import com.risheek.resume_screener.repository.ApplicationRepository;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.UserRepository;
@@ -36,13 +39,16 @@ public class JobService {
     private final JobSkillRepository jobSkillRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ApplicationRepository applicationRepository;
 
     public JobService(JobRepository jobRepository, JobSkillRepository jobSkillRepository,
-                       UserRepository userRepository, NotificationService notificationService) {
+                       UserRepository userRepository, NotificationService notificationService,
+                       ApplicationRepository applicationRepository) {
         this.jobRepository = jobRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.applicationRepository = applicationRepository;
     }
 
     @Transactional
@@ -180,12 +186,16 @@ public class JobService {
 
         Pageable pageable = PageRequest.of(page, size);
 
+        // Note: this intentionally does NOT filter out jobs the user has
+        // already applied to. Open jobs always stay visible in the listing;
+        // userApplicationStatus (below) tells the frontend whether to show
+        // "Already Applied" (APPLIED/SHORTLISTED/HIRED) or let the user
+        // apply again (REJECTED, or never applied).
         Specification<Job> spec = JobSpecification.buildSpecification(keyword, jobType, level, skill)
-                .and(JobSpecification.isOpenNow())
-                .and(JobSpecification.notAppliedByUser(currentUser.getId()));
+                .and(JobSpecification.isOpenNow());
 
         Page<JobResponse> jobPage = jobRepository.findAll(spec, pageable)
-                .map(this::toResponse);
+                .map(job -> toResponse(job, currentUser.getId()));
 
         return new JobPageResponse(
                 jobPage.getContent(),
@@ -206,10 +216,25 @@ public class JobService {
     }
 
     private JobResponse toResponse(Job job) {
+        return toResponse(job, null);
+    }
+
+    // userId is only passed for user-specific listings (e.g. GET /jobs/open);
+    // otherwise userApplicationStatus is left null since those responses are
+    // shared/cached across users.
+    private JobResponse toResponse(Job job, Long userId) {
         List<String> skillNames = jobSkillRepository.findByJobId(job.getId())
                 .stream()
                 .map(JobSkill::getSkillName)
                 .toList();
+
+        ApplicationStatus userApplicationStatus = null;
+        if (userId != null) {
+            userApplicationStatus = applicationRepository
+                    .findFirstByUserIdAndJobIdOrderByAppliedAtDesc(userId, job.getId())
+                    .map(Application::getStatus)
+                    .orElse(null);
+        }
 
         return new JobResponse(
                 job.getId(),
@@ -221,7 +246,8 @@ public class JobService {
                 job.getCreatedAt(),
                 job.getApplicationStartsAt(),
                 job.getApplicationDeadline(),
-                getApplicationStatus(job)
+                getApplicationStatus(job),
+                userApplicationStatus
         );
     }
 

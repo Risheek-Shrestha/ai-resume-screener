@@ -1,6 +1,5 @@
 package com.risheek.resume_screener.specification;
 
-import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
 import jakarta.persistence.criteria.Root;
@@ -39,16 +38,6 @@ public class JobSpecification {
                 cb.lessThanOrEqualTo(root.get("applicationStartsAt"), java.time.LocalDateTime.now()),
                 cb.greaterThanOrEqualTo(root.get("applicationDeadline"), java.time.LocalDateTime.now())
         );
-    }
-
-    public static Specification<Job> notAppliedByUser(Long userId) {
-        return (root, query, cb) -> {
-            Subquery<Long> subquery = query.subquery(Long.class);
-            Root<Application> applicationRoot = subquery.from(Application.class);
-            subquery.select(applicationRoot.get("job").get("id"))
-                    .where(cb.equal(applicationRoot.get("user").get("id"), userId));
-            return cb.not(root.get("id").in(subquery));
-        };
     }
 
     public static Specification<Job> buildSpecification(String keyword, Job.JobType jobType,

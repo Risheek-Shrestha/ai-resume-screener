@@ -10,12 +10,13 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "applications",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        columnNames = {"user_id", "job_id"}
-                )
-        })
+@Table(name = "applications")
+// Note: previously had a unique(user_id, job_id) constraint, which blocked a
+// user from ever re-applying to the same job after being rejected. Users can
+// now submit multiple applications for the same job over time (e.g. after
+// being REJECTED, with a new/updated resume); duplicates are instead
+// prevented only while an application is still "active" - see
+// ApplicationService#applyForJob.
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

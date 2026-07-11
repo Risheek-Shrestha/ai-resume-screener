@@ -12,6 +12,11 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     boolean existsByUserIdAndJobId(Long userId, Long jobId);
 
+    // Used to block re-applying while a previous application for the same
+    // job is still "active" (i.e. not REJECTED). Once REJECTED, this returns
+    // false and the user is free to apply again.
+    boolean existsByUserIdAndJobIdAndStatusNot(Long userId, Long jobId, ApplicationStatus status);
+
     List<Application> findByUserId(Long userId);
 
     List<Application> findByJobId(Long jobId);
@@ -24,4 +29,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
     List<Application> findByStatus(ApplicationStatus status);
 
     Optional<Application> findByIdAndUserId(Long id, Long userId);
+
+    // Latest application a user has submitted for a given job, used to
+    // surface the user's current status (Applied / Shortlisted / Hired /
+    // Rejected) on the browse-jobs listing.
+    Optional<Application> findFirstByUserIdAndJobIdOrderByAppliedAtDesc(Long userId, Long jobId);
 }
