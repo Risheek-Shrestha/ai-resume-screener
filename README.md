@@ -1,6 +1,14 @@
 # AI Resume Screener
 
+[![CI](https://github.com/Risheek-Shrestha/ai-resume-screener/actions/workflows/ci.yml/badge.svg)](https://github.com/Risheek-Shrestha/ai-resume-screener/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 An AI-assisted resume screening platform. Recruiters post jobs, candidates upload resumes, and the system automatically extracts resume text, scores it against the job using keyword + TF-IDF + semantic similarity, and returns actionable improvement suggestions, job recommendations, and a downloadable PDF report. Status change notifications are delivered asynchronously via RabbitMQ.
+
+**Live API:** [resume-screener-api-0zhm.onrender.com](https://resume-screener-api-0zhm.onrender.com) · [Swagger UI](https://resume-screener-api-0zhm.onrender.com/swagger-ui/index.html)
+**Frontend:** [ai-resume-screener-fronted-three.vercel.app](https://ai-resume-screener-fronted-three.vercel.app) ([repo](https://github.com/Risheek-Shrestha/ai-resume-screener-fronted))
+
+> The API runs on Render's free tier and spins down after inactivity — the first request after idle can take up to 50 seconds to respond.
 
 ## Architecture
 
@@ -180,6 +188,22 @@ cp src/main/resources/application.properties.example src/main/resources/applicat
 ```
 
 `ml.service.url` defaults to `http://localhost:8000` in `application.properties.example`, which is correct for local runs.
+
+## Production deployment
+
+The live instance runs on managed infra rather than the Docker Compose stack above:
+
+| Service | Provider |
+|---|---|
+| Spring Boot API | Render (web service, Docker) |
+| FastAPI ML service | Render (web service, Docker) |
+| PostgreSQL | Render (managed Postgres) |
+| RabbitMQ | CloudAMQP |
+| Frontend | Vercel |
+
+All secrets and environment-specific values (`SPRING_DATASOURCE_URL`, `JWT_SECRET`, `SPRING_MAIL_*`, `SPRING_RABBITMQ_*`, `APP_FRONTEND_URL`, `ML_SERVICE_URL`) are injected as environment variables at the platform level — `application.properties` only contains `${ENV_VAR:default}` placeholders and is safe to keep in version control. See `.env.example` for the full list of variables a deployment needs.
+
+CloudAMQP requires TLS: set `SPRING_RABBITMQ_SSL_ENABLED=true` and use port `5671`.
 
 ## Tests
 
