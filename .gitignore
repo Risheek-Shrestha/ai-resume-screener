@@ -3,9 +3,13 @@
 *.iml
 target/
 .env
-resume-screener/src/main/resources/application.properties
+resume-screener/src/main/resources/application-local.properties
 
 *.patch
 
 __pycache__/
 *.pyc
+
+eq1awYt27bjAOQqn51DCCDKmn4BW68xL
+
+resume_screener
