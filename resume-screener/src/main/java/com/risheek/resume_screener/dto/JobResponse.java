@@ -33,4 +33,14 @@ public class JobResponse implements Serializable {
     // user has never applied. Only populated for user-specific endpoints
     // (e.g. GET /jobs/open); left null on globally-cached responses.
     private ApplicationStatus userApplicationStatus;
+
+    // Backward-compatible constructor for call sites (mainly existing tests)
+    // predating the userApplicationStatus field. Defaults it to null.
+    public JobResponse(Long id, String title, String description, Job.JobType jobType,
+                        Job.ExperienceLevel experienceLevel, List<String> skills, LocalDateTime createdAt,
+                        LocalDateTime applicationStartsAt, LocalDateTime applicationDeadline,
+                        ApplicationWindowStatus applicationStatus) {
+        this(id, title, description, jobType, experienceLevel, skills, createdAt,
+                applicationStartsAt, applicationDeadline, applicationStatus, null);
+    }
 }

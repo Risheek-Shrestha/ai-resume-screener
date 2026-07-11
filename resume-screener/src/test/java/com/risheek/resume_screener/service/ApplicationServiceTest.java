@@ -137,11 +137,41 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
         when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
         when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong())).thenReturn(true);
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(anyLong(), anyLong(), eq(ApplicationStatus.REJECTED)))
+                .thenReturn(true);
 
         Exception ex = assertThrows(RuntimeException.class,
                 () -> applicationService.applyForJob(10L, request));
-        assertEquals("User has already applied for this job", ex.getMessage());
+        assertEquals("User already has an active application for this job", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_AllowsReapplyAfterRejection() {
+        // A user whose only prior application for this job was REJECTED
+        // should be able to apply again - existsByUserIdAndJobIdAndStatusNot
+        // (excluding REJECTED) correctly returns false in that case.
+        User user = new User(); user.setId(1L);
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        Resume resume = new Resume(); resume.setId(101L); resume.setUser(user);
+        Score score = new Score(); score.setOverallScore(BigDecimal.valueOf(80));
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(101L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(101L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(1L, 10L, ApplicationStatus.REJECTED))
+                .thenReturn(false);
+        when(scoreRepository.findByResumeIdAndJobId(101L, 10L)).thenReturn(Optional.of(score));
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Application result = applicationService.applyForJob(10L, request);
+
+        assertNotNull(result);
+        assertEquals(ApplicationStatus.APPLIED, result.getStatus());
+        verify(applicationRepository).save(any(Application.class));
     }
 
     @Test
@@ -160,8 +190,7 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
         when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
         when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(anyLong(), anyLong())).thenReturn(false);
-        // First call returns empty (triggers generation), second call returns the generated score
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(anyLong(), anyLong(), eq(ApplicationStatus.REJECTED))).thenReturn(false);
         when(scoreRepository.findByResumeIdAndJobId(100L, 10L))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(generatedScore));
@@ -201,7 +230,7 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
         when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(1L, 10L, ApplicationStatus.REJECTED)).thenReturn(false);
         when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
         when(applicationRepository.save(any(Application.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -230,7 +259,7 @@ class ApplicationServiceTest {
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
         when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
         when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
-        when(applicationRepository.existsByUserIdAndJobId(1L, 10L)).thenReturn(false);
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(1L, 10L, ApplicationStatus.REJECTED)).thenReturn(false);
         when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
         when(applicationRepository.save(any(Application.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
