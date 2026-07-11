@@ -8,10 +8,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
-// One row per recipient. Broadcast events (job posted, job opened for
-// applications) are fanned out into one Notification per USER at creation
-// time, so read/unread state is always per-user without needing a separate
-// join table.
 @Entity
 @Table(name = "notifications")
 @Data

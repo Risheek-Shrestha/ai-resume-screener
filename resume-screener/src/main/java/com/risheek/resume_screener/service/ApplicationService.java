@@ -134,10 +134,14 @@ public class ApplicationService {
                     "You are not allowed to view applications for this job");
         }
 
+        // Fixed: this was querying ApplicationStatus.APPLIED, which made
+        // "Accepted Candidates" show applicants who hadn't been hired yet
+        // (and, combined with the status filter mismatch against the plain
+        // "Applications" list, produced contradictory results for the same job).
         return applicationRepository
                 .findByJobIdAndStatusOrderByScoreOverallScoreDesc(
                         jobId,
-                        ApplicationStatus.APPLIED
+                        ApplicationStatus.HIRED
                 )
                 .stream()
                 .map(this::mapToResponse)

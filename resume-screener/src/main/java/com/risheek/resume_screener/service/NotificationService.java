@@ -14,10 +14,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Transactional
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -29,7 +31,7 @@ public class NotificationService {
     }
 
     public void notifyUser(User user, NotificationType type, String title, String message,
-                            Long jobId, Long applicationId) {
+                           Long jobId, Long applicationId) {
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setType(type);
@@ -56,6 +58,7 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
+    @Transactional(readOnly = true)
     public NotificationPageResponse getMyNotifications(int page, int size) {
         User currentUser = getCurrentUser();
 
@@ -77,6 +80,7 @@ public class NotificationService {
         );
     }
 
+    @Transactional(readOnly = true)
     public long getUnreadCount() {
         User currentUser = getCurrentUser();
         return notificationRepository.countByUserIdAndReadFalse(currentUser.getId());
@@ -122,4 +126,11 @@ public class NotificationService {
                 notification.getCreatedAt()
         );
     }
+
+    public void clearAllNotifications() {
+        User currentUser = getCurrentUser();
+        notificationRepository.deleteAllForUser(currentUser.getId());
+    }
+
+    
 }
