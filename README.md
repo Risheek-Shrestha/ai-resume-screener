@@ -71,10 +71,14 @@ All endpoints are prefixed `/api/v1`. Full interactive docs are at `/swagger-ui/
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/auth/register` | — | Create an account |
+| POST | `/users/register` | — | Create an account |
 | POST | `/auth/login` | — | Get access + refresh tokens |
 | POST | `/auth/refresh` | — | Exchange a refresh token for a new access token |
 | POST | `/auth/revoke` | — | Log out / invalidate a refresh token |
+| POST | `/auth/forgot-password` | — | Request a password reset email |
+| POST | `/auth/reset-password` | — | Reset password with a valid reset token |
+| GET | `/users/me` | USER | Get the current user's profile |
+| PUT | `/users/me` | USER | Update the current user's profile |
 | POST | `/jobs` | ADMIN | Create a job posting |
 | GET | `/jobs/{id}` | — | Get a job by ID |
 | GET | `/jobs` | — | List all jobs (paginated) |
@@ -86,17 +90,33 @@ All endpoints are prefixed `/api/v1`. Full interactive docs are at `/swagger-ui/
 | GET | `/resumes/{id}` | USER | Get a resume by ID |
 | PUT | `/resumes/{id}` | USER | Replace a resume |
 | DELETE | `/resumes/{id}` | USER | Delete a resume |
-| GET | `/scores/resume/{resumeId}` | USER | Get the AI match score for a resume |
+| POST | `/scores` | USER | Generate an AI match score for a resume/job pair |
+| GET | `/scores/resume/{resumeId}/job/{jobId}` | USER | Get the AI match score for a resume against a job |
 | GET | `/scores/my-scores` | USER | List all your scores |
-| GET | `/suggestions/improve/{resumeId}` | — | Get improvement suggestions for a resume |
-| GET | `/suggestions/jobs/{resumeId}` | — | Get recommended jobs for a resume |
+| GET | `/suggestions/improve/{resumeId}/job/{jobId}` | — | Get improvement suggestions for a resume |
+| GET | `/suggestions/jobs/{resumeId}/job/{jobId}` | — | Get recommended jobs for a resume |
 | POST | `/applications/jobs/{jobId}` | USER | Apply to a job — auto-scored and auto-accepted/rejected |
 | GET | `/applications/me` | USER | List your own applications |
 | GET | `/applications/jobs/{jobId}` | ADMIN | List all applicants for a job *(job owner only)* |
 | GET | `/applications/jobs/{jobId}/accepted` | ADMIN | List accepted applicants ranked by score *(job owner only)* |
 | PATCH | `/applications/{id}/status` | ADMIN | Move an application to `SHORTLISTED`, `HIRED`, or `REJECTED` |
-| GET | `/reports/resume/{resumeId}` | USER | Get a structured score report |
-| GET | `/reports/resume/{resumeId}/pdf` | USER | Download the report as a PDF |
+| GET | `/reports/resume/{resumeId}/job/{jobId}` | USER | Get a structured score report |
+| GET | `/reports/resume/{resumeId}/job/{jobId}/pdf` | USER | Download the report as a PDF |
+| GET | `/educations` | USER | List your education records |
+| GET | `/educations/{id}` | USER | Get an education record by ID |
+| POST | `/educations` | USER | Add an education record |
+| PUT | `/educations/{id}` | USER | Update an education record |
+| DELETE | `/educations/{id}` | USER | Delete an education record |
+| GET | `/courses` | — | List all courses |
+| GET | `/courses/{id}` | — | Get a course by ID |
+| POST | `/courses` | ADMIN | Create a course |
+| PUT | `/courses/{id}` | ADMIN | Update a course |
+| DELETE | `/courses/{id}` | ADMIN | Delete a course *(rejected if referenced by a user or job)* |
+| GET | `/notifications` | — | List your notifications (paginated) |
+| GET | `/notifications/unread-count` | — | Get your unread notification count |
+| PUT | `/notifications/{id}/read` | — | Mark a notification as read |
+| PUT | `/notifications/read-all` | — | Mark all notifications as read |
+| POST | `/admin/users` | ADMIN | Create an admin account |
 
 The FastAPI ML service endpoints (`/extract-text`, `/analyze`, `/suggest`, `/match-jobs`) are internal — the Spring Boot API is the only intended caller and they are not exposed to end users.
 
@@ -163,15 +183,19 @@ cp src/main/resources/application.properties.example src/main/resources/applicat
 
 ## Tests
 
-The test suite covers 26 test classes and ~220 tests across all layers:
+The Spring Boot test suite covers 28 test classes and ~250 tests across all layers. The FastAPI ML microservice does not yet have automated test coverage.
 
 | Layer | Classes | What's covered |
 |---|---|---|
-| Controllers | 7 | MockMvc slice tests for all endpoints, security rules, error responses |
-| Services | 10 | Unit tests for all business logic, ML fallback paths, status transitions |
-| Repositories | 7 | Testcontainers (PostgreSQL) integration tests for all custom queries |
-| JWT | 1 | Token generation, validation, expiry, tampering |
-| Listener | 1 | RabbitMQ notification listener delegation |
+| Controllers | 15 | MockMvc slice tests for all endpoints, security rules (role checks, unauthenticated/forbidden access), and error response mapping |
+| Services | 12 | Unit tests for all business logic, ownership checks, ML fallback paths, and status transitions |
+| Repositories | 12 | Testcontainers (PostgreSQL) integration tests for all custom queries, including empty-result and not-found cases |
+| Exception handling | 1 | Parameterized coverage of every custom exception → HTTP status/body mapping in the global exception handler |
+| JWT | 2 | Token generation, validation, expiry, tampering, and the auth filter |
+| Scheduler | 1 | Job-open notification scheduling |
+| Listener | 1 | RabbitMQ notification listener delegation, including the user-not-found branch |
+| Validation | 1 | Education date range validation |
+| Specification | 1 | Dynamic job search/filter query building |
 | Utility | 1 | Skill normalizer alias mapping |
 
 ```bash

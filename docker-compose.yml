@@ -13,7 +13,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-resume_screener}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-resume_pass}
     ports:
-      - "5434:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
