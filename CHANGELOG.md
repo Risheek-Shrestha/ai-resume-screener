@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Added
+- Job eligibility restrictions by course and/or semester. Admins can set `eligibleCourseIds`/`eligibleSemesters` when creating or editing a job; applying to a restricted job is rejected server-side (`403`) if the applicant doesn't match.
+
 ### Fixed
 - CORS configuration now reads allowed origin from `APP_FRONTEND_URL` instead of a hardcoded localhost value.
 - Auth interceptor on the frontend no longer masks login failures behind a misleading "invalid refresh token" error.

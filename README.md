@@ -61,6 +61,7 @@ Four services, wired together over a Docker network:
 - Job recommendations: ranks open jobs against a candidate's resume
 - ATS-style application screening: applying auto-scores the candidate and auto-accepts (`APPLIED`) or auto-rejects (`REJECTED`) on the spot, returning improvement suggestions alongside the result
 - Employer application management: view all applicants for a job, view accepted applicants ranked by score, and move applications through a status workflow with transition validation
+- Job eligibility restrictions: admins can restrict a job to specific courses and/or semesters; applying to a restricted job is rejected server-side if the applicant doesn't match
 - **Email notifications via RabbitMQ**: applicants receive an email whenever their application status changes (applied, shortlisted, hired, or rejected)
 - Downloadable PDF score report
 - Redis caching on job listing/detail endpoints, invalidated on create/update/delete; graceful in-memory fallback when Redis is unavailable
@@ -130,6 +131,8 @@ All endpoints are prefixed `/api/v1`. Full interactive docs are at `/swagger-ui/
 | POST | `/admin/users` | ADMIN | Create an admin account |
 
 The FastAPI ML service endpoints (`/extract-text`, `/analyze`, `/suggest`, `/match-jobs`) are internal — the Spring Boot API is the only intended caller and they are not exposed to end users.
+
+`POST /jobs` and `PUT /jobs/{id}` accept optional `eligibleCourseIds` (course IDs from `GET /courses`) and `eligibleSemesters` (integers) to restrict who can apply. Leaving both empty keeps the job open to everyone. `GET /jobs/open` returns each job's `eligibleCourses`, `eligibleSemesters`, and `eligibleForCurrentUser` so the frontend can show restrictions before the user applies; the restriction is also enforced server-side on `POST /applications/jobs/{jobId}`.
 
 ## Running with Docker
 
@@ -210,7 +213,7 @@ CloudAMQP requires TLS: set `SPRING_RABBITMQ_SSL_ENABLED=true` and use port `567
 
 ## Tests
 
-The Spring Boot test suite covers 28 test classes and ~250 tests across all layers. The FastAPI ML microservice does not yet have automated test coverage.
+The Spring Boot test suite covers 28 test classes and 400+ tests across all layers. The FastAPI ML microservice does not yet have automated test coverage.
 
 | Layer | Classes | What's covered |
 |---|---|---|
