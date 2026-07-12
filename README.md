@@ -10,6 +10,9 @@ An AI-assisted resume screening platform. Recruiters post jobs, candidates uploa
 
 > The API runs on Render's free tier and spins down after inactivity — the first request after idle can take up to 50 seconds to respond.
 
+**Demo login** (via the [live app](https://ai-resume-screener-fronted-three.vercel.app) or Swagger UI):
+`risheek@12.com` / `risheek12`
+
 ## Architecture
 
 Four services, wired together over a Docker network:
