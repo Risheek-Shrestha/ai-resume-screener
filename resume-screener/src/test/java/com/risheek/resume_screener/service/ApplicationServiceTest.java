@@ -126,6 +126,171 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void testApplyForJob_WrongCourse_Rejected() {
+        Course requiredCourse = new Course();
+        requiredCourse.setId(1L);
+        requiredCourse.setName("Computer Science");
+
+        Course userCourse = new Course();
+        userCourse.setId(2L);
+        userCourse.setName("Mechanical Engineering");
+
+        User user = new User(); user.setId(1L);
+        user.setCurrentCourse(userCourse);
+
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        job.getEligibleCourses().add(requiredCourse);
+
+        Resume resume = new Resume();
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("This job is only open to students of specific courses", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_NoCourseSet_RejectedWhenJobRestrictsByCourse() {
+        Course requiredCourse = new Course();
+        requiredCourse.setId(1L);
+        requiredCourse.setName("Computer Science");
+
+        User user = new User(); user.setId(1L);
+        // currentCourse intentionally left null
+
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        job.getEligibleCourses().add(requiredCourse);
+
+        Resume resume = new Resume();
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("This job is only open to students of specific courses", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_WrongSemester_Rejected() {
+        User user = new User(); user.setId(1L);
+        user.setCurrentSemester(3);
+
+        Job job = new Job(); job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        job.getEligibleSemesters().add(5);
+        job.getEligibleSemesters().add(6);
+
+        Resume resume = new Resume();
+        ApplicationRequest request = new ApplicationRequest(); request.setResumeId(100L);
+
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jobRepository.findById(anyLong())).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(anyLong(), anyLong())).thenReturn(Optional.of(resume));
+
+        Exception ex = assertThrows(RuntimeException.class,
+                () -> applicationService.applyForJob(10L, request));
+        assertEquals("This job is only open to students in specific semesters", ex.getMessage());
+    }
+
+    @Test
+    void testApplyForJob_EligibleCourseAndSemester_Allowed() {
+        Course course = new Course();
+        course.setId(1L);
+        course.setName("Computer Science");
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+        user.setCurrentCourse(course);
+        user.setCurrentSemester(5);
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+        job.getEligibleCourses().add(course);
+        job.getEligibleSemesters().add(5);
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+
+        Score score = new Score();
+        score.setId(50L);
+        score.setResume(resume);
+        score.setOverallScore(BigDecimal.valueOf(80));
+
+        ApplicationRequest request = new ApplicationRequest();
+        request.setResumeId(100L);
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(1L, 10L, ApplicationStatus.REJECTED)).thenReturn(false);
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Application result = applicationService.applyForJob(10L, request);
+
+        assertNotNull(result);
+        assertEquals(ApplicationStatus.APPLIED, result.getStatus());
+        verify(applicationRepository).save(any(Application.class));
+    }
+
+    @Test
+    void testApplyForJob_NoRestrictions_OpenToAnyone() {
+        // A job with empty eligibleCourses/eligibleSemesters (the default)
+        // should accept any user regardless of their course/semester.
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+        // currentCourse and currentSemester intentionally left unset
+
+        Job job = new Job();
+        job.setId(10L);
+        job.setApplicationStartsAt(LocalDateTime.now().minusDays(1));
+        job.setApplicationDeadline(LocalDateTime.now().plusDays(1));
+
+        Resume resume = new Resume();
+        resume.setId(100L);
+        resume.setUser(user);
+
+        Score score = new Score();
+        score.setId(50L);
+        score.setResume(resume);
+        score.setOverallScore(BigDecimal.valueOf(80));
+
+        ApplicationRequest request = new ApplicationRequest();
+        request.setResumeId(100L);
+
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(jobRepository.findById(10L)).thenReturn(Optional.of(job));
+        when(resumeRepository.findByIdAndUserId(100L, 1L)).thenReturn(Optional.of(resume));
+        when(applicationRepository.existsByUserIdAndJobIdAndStatusNot(1L, 10L, ApplicationStatus.REJECTED)).thenReturn(false);
+        when(scoreRepository.findByResumeIdAndJobId(100L, 10L)).thenReturn(Optional.of(score));
+        when(applicationRepository.save(any(Application.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Application result = applicationService.applyForJob(10L, request);
+
+        assertNotNull(result);
+        assertEquals(ApplicationStatus.APPLIED, result.getStatus());
+    }
+
+    @Test
     void testApplyForJob_DuplicateApplication() {
         User user = new User(); user.setId(1L);
         Job job = new Job(); job.setId(10L);

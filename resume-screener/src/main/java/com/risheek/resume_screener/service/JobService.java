@@ -1,19 +1,23 @@
 package com.risheek.resume_screener.service;
 
+import com.risheek.resume_screener.dto.CourseResponse;
 import com.risheek.resume_screener.dto.JobPageResponse;
 import com.risheek.resume_screener.dto.JobRequest;
 import com.risheek.resume_screener.dto.JobResponse;
 import com.risheek.resume_screener.entity.Application;
 import com.risheek.resume_screener.entity.ApplicationStatus;
 import com.risheek.resume_screener.entity.ApplicationWindowStatus;
+import com.risheek.resume_screener.entity.Course;
 import com.risheek.resume_screener.entity.Job;
 import com.risheek.resume_screener.entity.JobSkill;
 import com.risheek.resume_screener.entity.NotificationType;
+import com.risheek.resume_screener.exception.CourseNotFoundException;
 import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UnauthorizedAccessException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.ApplicationRepository;
+import com.risheek.resume_screener.repository.CourseRepository;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.UserRepository;
@@ -30,7 +34,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import com.risheek.resume_screener.entity.User;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class JobService {
@@ -40,15 +46,17 @@ public class JobService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ApplicationRepository applicationRepository;
+    private final CourseRepository courseRepository;
 
     public JobService(JobRepository jobRepository, JobSkillRepository jobSkillRepository,
                        UserRepository userRepository, NotificationService notificationService,
-                       ApplicationRepository applicationRepository) {
+                       ApplicationRepository applicationRepository, CourseRepository courseRepository) {
         this.jobRepository = jobRepository;
         this.jobSkillRepository = jobSkillRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
         this.applicationRepository = applicationRepository;
+        this.courseRepository = courseRepository;
     }
 
     @Transactional
@@ -68,6 +76,9 @@ public class JobService {
         validateApplicationWindow(request);
         job.setApplicationStartsAt(request.getApplicationStartsAt());
         job.setApplicationDeadline(request.getApplicationDeadline());
+        job.setEligibleCourses(resolveCourses(request.getEligibleCourseIds()));
+        job.setEligibleSemesters(
+                request.getEligibleSemesters() == null ? new HashSet<>() : new HashSet<>(request.getEligibleSemesters()));
 
 
         Job savedJob = jobRepository.save(job);
@@ -103,6 +114,9 @@ public class JobService {
         validateApplicationWindow(request);
         job.setApplicationDeadline(request.getApplicationDeadline());
         job.setApplicationStartsAt(request.getApplicationStartsAt());
+        job.setEligibleCourses(resolveCourses(request.getEligibleCourseIds()));
+        job.setEligibleSemesters(
+                request.getEligibleSemesters() == null ? new HashSet<>() : new HashSet<>(request.getEligibleSemesters()));
 
 
         Job savedJob = jobRepository.save(job);
@@ -195,7 +209,7 @@ public class JobService {
                 .and(JobSpecification.isOpenNow());
 
         Page<JobResponse> jobPage = jobRepository.findAll(spec, pageable)
-                .map(job -> toResponse(job, currentUser.getId()));
+                .map(job -> toResponse(job, currentUser));
 
         return new JobPageResponse(
                 jobPage.getContent(),
@@ -207,6 +221,19 @@ public class JobService {
         );
     }
 
+    private Set<Course> resolveCourses(List<Long> courseIds) {
+        if (courseIds == null || courseIds.isEmpty()) {
+            return new HashSet<>();
+        }
+        Set<Course> courses = new HashSet<>();
+        for (Long courseId : courseIds) {
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
+            courses.add(course);
+        }
+        return courses;
+    }
+
     private void saveSkills(Job job, List<String> skillNames) {
         if (skillNames == null || skillNames.isEmpty()) return;
         List<JobSkill> skills = skillNames.stream()
@@ -216,25 +243,31 @@ public class JobService {
     }
 
     private JobResponse toResponse(Job job) {
-        return toResponse(job, null);
+        return toResponse(job, (User) null);
     }
 
-    // userId is only passed for user-specific listings (e.g. GET /jobs/open);
-    // otherwise userApplicationStatus is left null since those responses are
-    // shared/cached across users.
-    private JobResponse toResponse(Job job, Long userId) {
+    // currentUser is only passed for user-specific listings (e.g. GET /jobs/open);
+    // otherwise userApplicationStatus/eligibleForCurrentUser are left null since
+    // those responses are shared/cached across users.
+    private JobResponse toResponse(Job job, User currentUser) {
         List<String> skillNames = jobSkillRepository.findByJobId(job.getId())
                 .stream()
                 .map(JobSkill::getSkillName)
                 .toList();
 
         ApplicationStatus userApplicationStatus = null;
-        if (userId != null) {
+        Boolean eligibleForCurrentUser = null;
+        if (currentUser != null) {
             userApplicationStatus = applicationRepository
-                    .findFirstByUserIdAndJobIdOrderByAppliedAtDesc(userId, job.getId())
+                    .findFirstByUserIdAndJobIdOrderByAppliedAtDesc(currentUser.getId(), job.getId())
                     .map(Application::getStatus)
                     .orElse(null);
+            eligibleForCurrentUser = isEligible(job, currentUser);
         }
+
+        List<CourseResponse> eligibleCourses = job.getEligibleCourses().stream()
+                .map(CourseResponse::from)
+                .toList();
 
         return new JobResponse(
                 job.getId(),
@@ -247,8 +280,25 @@ public class JobService {
                 job.getApplicationStartsAt(),
                 job.getApplicationDeadline(),
                 getApplicationStatus(job),
-                userApplicationStatus
+                userApplicationStatus,
+                eligibleCourses,
+                job.getEligibleSemesters(),
+                eligibleForCurrentUser
         );
+    }
+
+    private boolean isEligible(Job job, User user) {
+        if (!job.getEligibleCourses().isEmpty()) {
+            if (user.getCurrentCourse() == null || !job.getEligibleCourses().contains(user.getCurrentCourse())) {
+                return false;
+            }
+        }
+        if (!job.getEligibleSemesters().isEmpty()) {
+            if (user.getCurrentSemester() == null || !job.getEligibleSemesters().contains(user.getCurrentSemester())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void validateApplicationWindow(JobRequest request) {

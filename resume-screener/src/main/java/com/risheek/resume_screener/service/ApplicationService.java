@@ -58,6 +58,22 @@ public class ApplicationService {
             }
         }
 
+        if (!currentJob.getEligibleCourses().isEmpty()) {
+            if (currentUser.getCurrentCourse() == null
+                    || !currentJob.getEligibleCourses().contains(currentUser.getCurrentCourse())) {
+                throw new CourseNotEligibleException(
+                        "This job is only open to students of specific courses");
+            }
+        }
+
+        if (!currentJob.getEligibleSemesters().isEmpty()) {
+            if (currentUser.getCurrentSemester() == null
+                    || !currentJob.getEligibleSemesters().contains(currentUser.getCurrentSemester())) {
+                throw new CourseNotEligibleException(
+                        "This job is only open to students in specific semesters");
+            }
+        }
+
         // Only block re-applying while a previous application is still
         // "active" (APPLIED, SHORTLISTED, or HIRED). Once REJECTED, the user
         // is free to apply again - e.g. with an updated/new resume - and can

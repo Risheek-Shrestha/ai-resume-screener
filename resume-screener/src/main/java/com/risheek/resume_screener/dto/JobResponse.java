@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -34,13 +35,23 @@ public class JobResponse implements Serializable {
     // (e.g. GET /jobs/open); left null on globally-cached responses.
     private ApplicationStatus userApplicationStatus;
 
+    // Courses/semesters this job is restricted to. Empty lists mean "open to everyone".
+    private List<CourseResponse> eligibleCourses;
+    private Set<Integer> eligibleSemesters;
+
+    // Whether the current authenticated user meets this job's course/semester
+    // restrictions. Only populated for user-specific endpoints (e.g. GET
+    // /jobs/open); left null on globally-cached responses.
+    private Boolean eligibleForCurrentUser;
+
     // Backward-compatible constructor for call sites (mainly existing tests)
-    // predating the userApplicationStatus field. Defaults it to null.
+    // predating the userApplicationStatus/eligibility fields. Defaults them.
     public JobResponse(Long id, String title, String description, Job.JobType jobType,
                         Job.ExperienceLevel experienceLevel, List<String> skills, LocalDateTime createdAt,
                         LocalDateTime applicationStartsAt, LocalDateTime applicationDeadline,
                         ApplicationWindowStatus applicationStatus) {
         this(id, title, description, jobType, experienceLevel, skills, createdAt,
-                applicationStartsAt, applicationDeadline, applicationStatus, null);
+                applicationStartsAt, applicationDeadline, applicationStatus, null,
+                List.of(), Set.of(), null);
     }
 }

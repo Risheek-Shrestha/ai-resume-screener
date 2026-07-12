@@ -195,6 +195,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(CourseNotEligibleException.class)
+    public ResponseEntity<ErrorResponse> handleCourseNotEligible(
+            CourseNotEligibleException ex,
+            HttpServletRequest request) {
+
+        ErrorResponse error = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "Not Eligible",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
     @ExceptionHandler(DuplicateApplicationException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateApplication(
             DuplicateApplicationException ex,

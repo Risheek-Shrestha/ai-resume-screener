@@ -10,6 +10,7 @@ import com.risheek.resume_screener.exception.InvalidApplicationWindowException;
 import com.risheek.resume_screener.exception.JobNotFoundException;
 import com.risheek.resume_screener.exception.UserNotFoundException;
 import com.risheek.resume_screener.repository.ApplicationRepository;
+import com.risheek.resume_screener.repository.CourseRepository;
 import com.risheek.resume_screener.repository.JobRepository;
 import com.risheek.resume_screener.repository.JobSkillRepository;
 import com.risheek.resume_screener.repository.UserRepository;
@@ -49,12 +50,14 @@ class JobServiceTest {
     private NotificationService notificationService;
     @Mock
     private ApplicationRepository applicationRepository;
+    @Mock
+    private CourseRepository courseRepository;
 
     private JobService jobService;
 
     @BeforeEach
     void setUp() {
-        jobService = new JobService(jobRepository, jobSkillRepository, userRepository, notificationService, applicationRepository);
+        jobService = new JobService(jobRepository, jobSkillRepository, userRepository, notificationService, applicationRepository, courseRepository);
 
         SecurityContext securityContext = mock(SecurityContext.class);
         lenient().when(securityContext.getAuthentication())

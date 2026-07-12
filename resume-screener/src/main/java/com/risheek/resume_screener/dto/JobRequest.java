@@ -7,6 +7,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Data
 public class JobRequest {
@@ -30,4 +31,10 @@ public class JobRequest {
 
     @NotNull(message = "Enter application deadline date and time")
     private LocalDateTime applicationDeadline;
+
+    // Course IDs this job is restricted to. Leave empty/null for "open to all courses".
+    private List<Long> eligibleCourseIds;
+
+    // Semesters this job is restricted to. Leave empty/null for "open to all semesters".
+    private Set<Integer> eligibleSemesters;
 }
